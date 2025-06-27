@@ -1,0 +1,10 @@
+Split the following text into semantically coherent chunks. Each chunk should:
+1. Be roughly {{chunk_size}} characters long
+2. End at natural semantic boundaries
+3. Maintain context and readability
+4. Not exceed {{max_chunk_size}} characters
+            
+Return only the split text with "---CHUNK---" as separator between chunks.
+            
+Text to split:
+{{section}}
