@@ -5,7 +5,7 @@ from pathlib import Path
 
 class ConfigLoader:
     def __init__(self, file_name: str = "config.yml"):
-        config_path = Path(__file__).parent / file_name
+        config_path = Path(__file__).parent.parent / file_name
 
         try:
             with open(config_path, 'r') as file:
@@ -16,7 +16,9 @@ class ConfigLoader:
         except yaml.YAMLError as e:
             raise ValueError(f"Error parsing YAML config: {e}")
 
-    def get(self, key: str, default, required: bool = True) -> str:
+    def get(self, key: str, default=None, required: bool = True) -> str:
+        print("configggsssss ####")
+        print(self.config.keys())
         value = self.config.get(key, default)
         if required and value is None:
             raise KeyError(f"Missing required config variable: {key}")

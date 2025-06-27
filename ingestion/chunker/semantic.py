@@ -12,8 +12,8 @@ from ingestion.chunker.chunker import BaseChunker
 
 embedding_client = get_embedding_client()
 ingestion_model = get_ingestion_model()
-logger = logging.getLogger(__name__)
 _prompt_loader = PromptLoader(path='ingestion')
+logger = logging.getLogger(__name__)
 
 
 class SemanticChunker(BaseChunker):

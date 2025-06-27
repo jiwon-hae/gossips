@@ -10,8 +10,8 @@ config = ConfigLoader()
 env = EnvLoader()
 
 
-def get_llm_model(model_choices: Optional[str] = None) -> OpenAIModel:
-    llm_choice = model_choices or config.get(
+def get_llm_model(model_choice: Optional[str] = None) -> OpenAIModel:
+    llm_choice = model_choice or config.get(
         'LLM_CHOICE', 'gpt-4-turbo-preview')
     base_url = config.get("LLM_BASE_URL", "https://api.openai.com/v1'")
     api_key = env.get("LLM_API_KEY", "ollama")
