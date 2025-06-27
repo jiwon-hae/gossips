@@ -2,7 +2,8 @@ from dotenv import load_dotenv
 import os
 from pathlib import Path
 
-class SecretsLoader:
+
+class EnvLoader:
     def __init__(self, env_path:str ='.env'):
         """
         Initializes the loader and loads environment variables from the given .env file.
