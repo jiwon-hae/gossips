@@ -158,7 +158,8 @@ class SemanticChunker(BaseChunker):
             List of sub-chunks
         """
         try:
-            prompt = _prompt_loader.render('semantic.j2', section=section)
+            prompt = _prompt_loader.render(
+                'semantic.j2', section=section, chunk_size=self.config.chunk_size, max_chunk_size=self.config.max_chunk_size)
 
             # Use Pydantic AI for LLM calls
             from pydantic_ai import Agent

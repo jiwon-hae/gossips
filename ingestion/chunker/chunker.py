@@ -53,6 +53,7 @@ class BaseChunker(ABC):
         """
         pass
     
+    @abstractmethod
     def _create_chunk(
         self,
         chunks: List[str],
@@ -75,38 +76,7 @@ class BaseChunker(ABC):
         Returns:
             List[DocumentChunk]: List of DocumentChunk objects
         """
-        chunk_objects = []
-        current_pos = 0
-        
-        for i, chunk_text in enumerate(chunks):
-            # Find the position of this chunk in the original content
-            start_pos = original_content.find(chunk_text, current_pos)
-            if start_pos == -1:
-                # Fallback: estimate position
-                start_pos = current_pos
-            
-            end_pos = start_pos + len(chunk_text)
-            
-            # Create chunk metadata
-            chunk_metadata = {
-                **base_metadata,
-                "chunk_method": chunk_method,
-                "total_chunks": len(chunks),
-                "chunk_size": len(chunk_text),
-                "chunk_overlap": self.config.chunk_overlap
-            }
-            
-            chunk_objects.append(DocumentChunk(
-                content=chunk_text.strip(),
-                index=i,
-                start_char=start_pos,
-                end_char=end_pos,
-                metadata=chunk_metadata
-            ))
-            
-            current_pos = end_pos
-        
-        return chunk_objects
+        pass
     
     def _validate_chunk_size(self, chunk: str) -> bool:
         """
