@@ -13,6 +13,8 @@ if project_root not in sys.path:
 from data.collection.config import DataCollectionConfig, EventCategory
 from data.collection.models import NewsArticle, TrainingDataSample
 from data.predictor.ml_classifier import CelebrityMLClassifier, TrainingConfig, TrainingDataManager
+from data.predictor.pytorch_classifier import CelebrityPyTorchClassifier, PyTorchTrainingConfig
+from data.predictor.model_evaluator import ModelEvaluator, evaluate_all_models
 from data.collection.pipeline import CelebrityNewsDataPipeline
 from typing import List, Optional
 from datetime import datetime
@@ -31,12 +33,15 @@ class ClassifierTrainingPipeline:
 
     def __init__(self,
                  data_config: DataCollectionConfig = None,
-                 training_config: TrainingConfig = None):
+                 training_config: TrainingConfig = None,
+                 pytorch_config: PyTorchTrainingConfig = None):
         """Initialize training pipeline."""
         self.data_config = data_config or DataCollectionConfig()
         self.training_config = training_config or TrainingConfig()
+        self.pytorch_config = pytorch_config or PyTorchTrainingConfig()
         self.data_pipeline = CelebrityNewsDataPipeline(self.data_config)
         self.classifier = CelebrityMLClassifier(self.training_config)
+        self.pytorch_classifier = CelebrityPyTorchClassifier(self.pytorch_config)
         self.training_data_manager = TrainingDataManager()
 
     async def collect_training_data(self,
@@ -128,12 +133,25 @@ class ClassifierTrainingPipeline:
             ]
         }
 
-        # Celebrity names for templates
         celebrity_names = [
-            "Taylor Swift", "Kim Kardashian", "Brad Pitt", "Jennifer Lopez",
-            "Kanye West", "Angelina Jolie", "Leonardo DiCaprio", "Scarlett Johansson",
-            "Ryan Reynolds", "Blake Lively", "Justin Bieber", "Selena Gomez",
-            "Ariana Grande", "Pete Davidson", "Rihanna", "Beyoncé"
+            # Actors/Actresses
+            "Brad Pitt", "Angelina Jolie", "Jennifer Aniston", "Leonardo DiCaprio",
+            "Scarlett Johansson", "Ryan Reynolds", "Blake Lively", "Tom Cruise",
+            "Jennifer Lawrence", "Emma Stone", "Ryan Gosling", "Margot Robbie",
+            "Chris Evans", "Robert Downey Jr", "Zendaya", "Timothée Chalamet",
+            
+            # Musicians
+            "Taylor Swift", "Ariana Grande", "Justin Bieber", "Selena Gomez",
+            "Beyonce", "Jay-Z", "Kanye West", "Kim Kardashian", "Drake",
+            "Rihanna", "Lady Gaga", "Bruno Mars", "Ed Sheeran", "Adele",
+            
+            # Reality TV / Influencers
+            "Kylie Jenner", "Kendall Jenner", "Khloe Kardashian", "Kourtney Kardashian",
+            "Paris Hilton", "Nicole Richie", "Britney Spears", "Justin Timberlake",
+            
+            # Newer celebrities
+            "Olivia Rodrigo", "Billie Eilish", "Dua Lipa", "Harry Styles",
+            "Tom Holland", "Anya Taylor-Joy", "Florence Pugh", "Sydney Sweeney"
         ]
 
         synthetic_samples = []
@@ -181,7 +199,7 @@ class ClassifierTrainingPipeline:
     async def train_and_evaluate(self,
                                  training_samples: List[TrainingDataSample],
                                  model_types: List[str] = None) -> dict:
-        """Train and evaluate multiple model types."""
+        """Train and evaluate multiple model types including PyTorch models."""
         model_types = model_types or [
             "random_forest", "naive_bayes", "logistic_regression"]
         results = {}
@@ -189,24 +207,44 @@ class ClassifierTrainingPipeline:
         for model_type in model_types:
             logger.info(f"Training {model_type} classifier")
 
-            # Create training config for this model
-            config = TrainingConfig(
-                model_type=model_type,
-                save_model=True,
-                model_save_path=f"models/celebrity_classifier_{model_type}.pkl",
-                perform_grid_search=False  # Can be enabled for better performance
-            )
+            if model_type in ["mlp", "lstm", "transformer"]:
+                # PyTorch models - create unique path to avoid conflicts
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                config = PyTorchTrainingConfig(
+                    model_type=model_type,
+                    save_model=True,
+                    model_save_path=f"{project_root}/models/celebrity_classifier_{model_type}_{timestamp}.pth"
+                )
+                
+                classifier = CelebrityPyTorchClassifier(config)
+                metrics = classifier.train(training_samples)
+                
+                # Store results
+                results[model_type] = {
+                    'classifier': classifier,
+                    'metrics': metrics,
+                    'config': config,
+                    'framework': 'pytorch'
+                }
+            else:
+                # Scikit-learn models
+                config = TrainingConfig(
+                    model_type=model_type,
+                    save_model=True,
+                    model_save_path=f"{project_root}/models/celebrity_classifier_{model_type}.pkl",
+                    perform_grid_search=False  # Can be enabled for better performance
+                )
 
-            # Train classifier
-            classifier = CelebrityMLClassifier(config)
-            metrics = classifier.train(training_samples)
+                classifier = CelebrityMLClassifier(config)
+                metrics = classifier.train(training_samples)
 
-            # Store results
-            results[model_type] = {
-                'classifier': classifier,
-                'metrics': metrics,
-                'config': config
-            }
+                # Store results
+                results[model_type] = {
+                    'classifier': classifier,
+                    'metrics': metrics,
+                    'config': config,
+                    'framework': 'sklearn'
+                }
 
             logger.info(
                 f"{model_type} training completed - Accuracy: {metrics.accuracy:.3f}")
@@ -223,8 +261,10 @@ class ClassifierTrainingPipeline:
         comparison_data = []
         for model_type, result in results.items():
             metrics = result['metrics']
+            framework = result.get('framework', 'sklearn')
             comparison_data.append({
                 'Model': model_type,
+                'Framework': framework,
                 'Accuracy': f"{metrics.accuracy:.3f}",
                 'CV Score': f"{np.mean(metrics.cross_val_scores):.3f} ± {np.std(metrics.cross_val_scores):.3f}",
                 'Training Samples': metrics.training_samples,
@@ -248,7 +288,8 @@ class ClassifierTrainingPipeline:
                                          max_articles: int = 1000,
                                          min_confidence: float = 0.6,
                                          augment_data: bool = True,
-                                         model_types: List[str] = None) -> dict:
+                                         model_types: List[str] = None,
+                                         comprehensive_eval: bool = False) -> dict:
         """Run the complete training pipeline."""
         logger.info("Starting complete classifier training pipeline")
 
@@ -283,6 +324,29 @@ class ClassifierTrainingPipeline:
         print("=" * 80)
         results[best_model]['classifier'].print_evaluation_report()
 
+        # Step 7: Comprehensive model evaluation and comparison (optional)
+        if comprehensive_eval:
+            print("\\n" + "=" * 80)
+            print("COMPREHENSIVE MODEL EVALUATION")
+            print("=" * 80)
+            
+            try:
+                evaluator = evaluate_all_models(
+                    training_results=results,
+                    training_samples=training_samples,
+                    output_dir=f"{project_root}/data/predictor/evaluation_results"
+                )
+                
+                # Get the statistically best model
+                statistical_best_model, best_metrics = evaluator.get_best_model('f1_macro')
+                print(f"\\nStatistically best model: {statistical_best_model}")
+                print(f"F1 Score (Macro): {best_metrics.f1_macro:.4f}")
+                print(f"Cross-validation: {best_metrics.cv_mean:.4f} ± {best_metrics.cv_std:.4f}")
+                
+            except Exception as e:
+                logger.warning(f"Comprehensive evaluation failed: {e}")
+                logger.info("Continuing with basic evaluation results")
+
         return results
 
 
@@ -298,14 +362,17 @@ async def main():
                         help="Disable synthetic data augmentation")
     parser.add_argument("--models", nargs="+",
                         choices=["random_forest", "naive_bayes",
-                                 "logistic_regression", "svm"],
+                                 "logistic_regression", "svm", 
+                                 "mlp", "lstm", "transformer"],
                         default=["random_forest", "naive_bayes",
                                  "logistic_regression"],
-                        help="Models to train and compare")
+                        help="Models to train and compare (includes PyTorch: mlp, lstm, transformer)")
     parser.add_argument("--output-dir", type=str, default="models",
                         help="Directory to save trained models")
     parser.add_argument("--verbose", action="store_true",
                         help="Enable verbose logging")
+    parser.add_argument("--comprehensive-eval", action="store_true",
+                        help="Enable comprehensive model evaluation with statistical testing")
 
     args = parser.parse_args()
 
@@ -337,7 +404,8 @@ async def main():
             max_articles=args.max_articles,
             min_confidence=args.min_confidence,
             augment_data=not args.no_augment,
-            model_types=args.models
+            model_types=args.models,
+            comprehensive_eval=args.comprehensive_eval
         )
 
         print("\\n" + "=" * 80)

@@ -18,18 +18,20 @@ async def main():
                         help="Maximum articles to collect for training")
     parser.add_argument("--min-confidence", type=float, default=0.6,
                         help="Minimum confidence threshold for training data")
-    parser.add_argument("--no-augment", action="store_true",
+    parser.add_argument("--no-augment", action="store_true", default = True,
                         help="Disable synthetic data augmentation")
     parser.add_argument("--models", nargs="+",
                         choices=["random_forest", "naive_bayes",
-                                 "logistic_regression", "svm"],
+                                 "logistic_regression", "svm",
+                                 "mlp", "lstm", "transformer"],
                         default=["random_forest", "naive_bayes",
                                  "logistic_regression"],
-                        help="Models to train and compare")
+                        help="Models to train and compare (includes PyTorch: mlp, lstm, transformer)")
     parser.add_argument("--output-dir", type=str, default="models",
                         help="Directory to save trained models")
     parser.add_argument("--verbose", action="store_true",
                         help="Enable verbose logging")
+    parser.add_argument("--comprehensive-eval", action="store_true", help="Enable comprehensive_eval")
 
     args = parser.parse_args()
 
@@ -47,7 +49,7 @@ async def main():
     # Set up training configs
     data_config = DataCollectionConfig(
         max_articles_per_run=args.max_articles,
-        output_directory=f"{project_root}/data/training_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        output_directory=f"{project_root}/data/training"
     )
 
     training_config = TrainingConfig(
@@ -62,7 +64,8 @@ async def main():
             max_articles=args.max_articles,
             min_confidence=args.min_confidence,
             augment_data=not args.no_augment,
-            model_types=args.models
+            model_types=args.models,
+            comprehensive_eval=args.comprehensive_eval
         )
 
         print("\\n" + "=" * 80)

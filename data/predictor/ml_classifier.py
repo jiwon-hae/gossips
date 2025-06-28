@@ -204,12 +204,19 @@ class CelebrityMLClassifier:
         class_counts = Counter(labels)
         logger.info(f"Class distribution: {dict(class_counts)}")
         
+        # Check if stratification is possible
+        min_class_count = min(class_counts.values())
+        use_stratify = min_class_count >= 2
+        
+        if not use_stratify:
+            logger.warning(f"Some classes have only {min_class_count} sample(s). Disabling stratification.")
+        
         # Split data
         X_train, X_test, y_train, y_test = train_test_split(
             texts, y_encoded, 
             test_size=self.config.test_size,
             random_state=self.config.random_state,
-            stratify=y_encoded
+            stratify=y_encoded if use_stratify else None
         )
         
         # Create and train pipeline

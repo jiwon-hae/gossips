@@ -341,7 +341,7 @@ async def main():
         
         # Generate and save report
         report = pipeline.generate_report(articles, stats)
-        report_file = Path(args.output_dir) / f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        report_file = Path(args.output_dir) / f"report.txt"
         with open(report_file, 'w') as f:
             f.write(report)
         
