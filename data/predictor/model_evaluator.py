@@ -36,8 +36,8 @@ except ImportError:
 
 from data.collection.models import TrainingDataSample, ClassificationResult
 from data.collection.config import EventCategory
-from data.predictor.ml_classifier import CelebrityMLClassifier, ModelMetrics
-from data.predictor.pytorch_classifier import CelebrityPyTorchClassifier
+from data.predictor.ml_classifier import EventMLClassifier, ModelMetrics
+from data.predictor.pytorch_classifier import EventPyTorchClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +117,7 @@ class ModelEvaluator:
         self.test_data = (texts, labels)
         logger.info(f"Set test data with {len(texts)} samples")
     
-    def evaluate_model(self, model: Union[CelebrityMLClassifier, CelebrityPyTorchClassifier], 
+    def evaluate_model(self, model: Union[EventMLClassifier, EventPyTorchClassifier], 
                       model_name: str, training_samples: List[TrainingDataSample]) -> EvaluationMetrics:
         """Evaluate a single model comprehensively."""
         logger.info(f"Evaluating model: {model_name}")
@@ -128,7 +128,7 @@ class ModelEvaluator:
         texts, labels = self.test_data
         
         # Determine framework
-        framework = "pytorch" if isinstance(model, CelebrityPyTorchClassifier) else "sklearn"
+        framework = "pytorch" if isinstance(model, EventPyTorchClassifier) else "sklearn"
         
         # Time inference
         import time
@@ -200,11 +200,11 @@ class ModelEvaluator:
         self.evaluation_results[model_name] = metrics
         return metrics
     
-    def _cross_validate_model(self, model: Union[CelebrityMLClassifier, CelebrityPyTorchClassifier], 
+    def _cross_validate_model(self, model: Union[EventMLClassifier, EventPyTorchClassifier], 
                              texts: List[str], labels: List[str]) -> List[float]:
         """Perform cross-validation on the model."""
         try:
-            if isinstance(model, CelebrityMLClassifier):
+            if isinstance(model, EventMLClassifier):
                 # For sklearn models, use the pipeline directly
                 if model.pipeline and model.label_encoder:
                     y_encoded = model.label_encoder.transform(labels)
@@ -230,10 +230,10 @@ class ModelEvaluator:
             logger.warning(f"Cross-validation failed for {type(model).__name__}: {e}")
             return [0.0]
     
-    def _estimate_model_size(self, model: Union[CelebrityMLClassifier, CelebrityPyTorchClassifier]) -> float:
+    def _estimate_model_size(self, model: Union[EventMLClassifier, EventPyTorchClassifier]) -> float:
         """Estimate model size in MB."""
         try:
-            if isinstance(model, CelebrityPyTorchClassifier):
+            if isinstance(model, EventPyTorchClassifier):
                 if model.model:
                     param_size = sum(p.numel() * p.element_size() for p in model.model.parameters())
                     buffer_size = sum(b.numel() * b.element_size() for b in model.model.buffers())

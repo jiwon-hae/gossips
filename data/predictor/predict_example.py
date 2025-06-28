@@ -13,7 +13,7 @@ import asyncio
 import logging
 from datetime import datetime
 
-from data.predictor.ml_classifier import CelebrityMLClassifier, TrainingConfig
+from data.predictor.ml_classifier import EventMLClassifier, TrainingConfig
 from data.collection.models import NewsArticle
 from data.collection.config import EventCategory
 
@@ -28,7 +28,7 @@ async def predict_example():
     # Try to load a trained model
     try:
         config = TrainingConfig(model_type="random_forest")
-        classifier = CelebrityMLClassifier(config)
+        classifier = EventMLClassifier(config)
         classifier.load_model("models/celebrity_classifier_random_forest.pkl")
         print("✓ Loaded trained Random Forest model")
     except FileNotFoundError:
@@ -109,7 +109,7 @@ async def batch_prediction_example():
     # Load classifier
     try:
         config = TrainingConfig(model_type="random_forest")
-        classifier = CelebrityMLClassifier(config)
+        classifier = EventMLClassifier(config)
         classifier.load_model("models/celebrity_classifier_random_forest.pkl")
     except FileNotFoundError:
         print("No trained model found for batch prediction example.")
@@ -170,7 +170,7 @@ def check_model_performance():
     for model_type in model_types:
         try:
             config = TrainingConfig(model_type=model_type)
-            classifier = CelebrityMLClassifier(config)
+            classifier = EventMLClassifier(config)
             classifier.load_model(f"models/celebrity_classifier_{model_type}.pkl")
             
             print(f"\\n{model_type.upper()} MODEL:")

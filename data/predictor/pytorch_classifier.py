@@ -221,7 +221,7 @@ class TransformerClassifier(nn.Module):
         return x
 
 
-class CelebrityPyTorchClassifier:
+class EventPyTorchClassifier:
     """PyTorch-based classifier for celebrity news events."""
     
     def __init__(self, config: PyTorchTrainingConfig = None):

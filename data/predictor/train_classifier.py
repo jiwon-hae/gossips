@@ -12,8 +12,8 @@ if project_root not in sys.path:
 
 from data.collection.config import DataCollectionConfig, EventCategory
 from data.collection.models import NewsArticle, TrainingDataSample
-from data.predictor.ml_classifier import CelebrityMLClassifier, TrainingConfig, TrainingDataManager
-from data.predictor.pytorch_classifier import CelebrityPyTorchClassifier, PyTorchTrainingConfig
+from data.predictor.ml_classifier import EventMLClassifier, TrainingConfig, TrainingDataManager
+from data.predictor.pytorch_classifier import EventPyTorchClassifier, PyTorchTrainingConfig
 from data.predictor.model_evaluator import ModelEvaluator, evaluate_all_models
 from data.collection.pipeline import CelebrityNewsDataPipeline
 from typing import List, Optional
@@ -40,8 +40,8 @@ class ClassifierTrainingPipeline:
         self.training_config = training_config or TrainingConfig()
         self.pytorch_config = pytorch_config or PyTorchTrainingConfig()
         self.data_pipeline = CelebrityNewsDataPipeline(self.data_config)
-        self.classifier = CelebrityMLClassifier(self.training_config)
-        self.pytorch_classifier = CelebrityPyTorchClassifier(self.pytorch_config)
+        self.classifier = EventMLClassifier(self.training_config)
+        self.pytorch_classifier = EventPyTorchClassifier(self.pytorch_config)
         self.training_data_manager = TrainingDataManager()
 
     async def collect_training_data(self,
@@ -216,7 +216,7 @@ class ClassifierTrainingPipeline:
                     model_save_path=f"{project_root}/models/celebrity_classifier_{model_type}_{timestamp}.pth"
                 )
                 
-                classifier = CelebrityPyTorchClassifier(config)
+                classifier = EventPyTorchClassifier(config)
                 metrics = classifier.train(training_samples)
                 
                 # Store results
@@ -235,7 +235,7 @@ class ClassifierTrainingPipeline:
                     perform_grid_search=False  # Can be enabled for better performance
                 )
 
-                classifier = CelebrityMLClassifier(config)
+                classifier = EventMLClassifier(config)
                 metrics = classifier.train(training_samples)
 
                 # Store results
