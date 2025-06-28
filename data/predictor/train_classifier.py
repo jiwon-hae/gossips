@@ -333,7 +333,7 @@ class ClassifierTrainingPipeline:
                 evaluator = evaluate_all_models(
                     training_results=results,
                     training_samples=training_samples,
-                    output_dir=f"{project_root}/evaluation_results_{timestamp}"
+                    output_dir=f"{project_root}/predictor/evaluation_results_{timestamp}"
                 )
                 
                 # Get the statistically best model
