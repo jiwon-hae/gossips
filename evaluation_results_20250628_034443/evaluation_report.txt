@@ -1,0 +1,247 @@
+================================================================================
+COMPREHENSIVE MODEL EVALUATION REPORT
+================================================================================
+Generated: 2025-06-28 03:44:46
+Models evaluated: 6
+
+PERFORMANCE SUMMARY:
+----------------------------------------
+              Model Framework Accuracy F1 (Macro) F1 (Weighted) Precision (Macro) Recall (Macro) Matthews Corr   CV Mean ± Std Inference Time (s) Model Size (MB)
+      random_forest   sklearn   0.8605     0.8316        0.8628            0.8361         0.8649        0.8521 0.4509 ± 0.1086             0.0494           10.00
+                mlp   pytorch   0.1163     0.0309        0.0502            0.0259         0.0696        0.0465 0.8000 ± 0.0000             0.0255            0.42
+               lstm   pytorch   0.0698     0.0065        0.0091            0.0035         0.0500        0.0000 0.8000 ± 0.0000             0.0704            1.26
+                svm   sklearn   0.7907     0.6554        0.7733            0.6821         0.6628        0.7836 0.3430 ± 0.0987             0.0246           10.00
+        naive_bayes   sklearn   0.6395     0.3251        0.5283            0.3038         0.3764        0.6153 0.2980 ± 0.0677             0.0224           10.00
+logistic_regression   sklearn   0.7209     0.4670        0.6730            0.5072         0.4827        0.7051 0.3710 ± 0.0947             0.0221           10.00
+
+BEST MODEL (F1 Macro): random_forest
+F1 Score: 0.8316
+Accuracy: 0.8605
+
+STATISTICAL COMPARISONS (F1 Macro):
+----------------------------------------
+random_forest vs mlp: p=0.0030 (SIGNIFICANT)
+  Winner: mlp, Effect size: -4.546
+random_forest vs lstm: p=0.0030 (SIGNIFICANT)
+  Winner: lstm, Effect size: -4.546
+random_forest vs svm: p=0.0211 (SIGNIFICANT)
+  Winner: random_forest, Effect size: 1.040
+random_forest vs naive_bayes: p=0.0389 (SIGNIFICANT)
+  Winner: random_forest, Effect size: 1.690
+random_forest vs logistic_regression: p=0.0974 (Not significant)
+  Winner: No significant difference, Effect size: 0.784
+mlp vs lstm: p=nan (Not significant)
+  Winner: No significant difference, Effect size: 0.000
+mlp vs svm: p=0.0008 (SIGNIFICANT)
+  Winner: mlp, Effect size: 6.550
+mlp vs naive_bayes: p=0.0001 (SIGNIFICANT)
+  Winner: mlp, Effect size: 10.488
+mlp vs logistic_regression: p=0.0008 (SIGNIFICANT)
+  Winner: mlp, Effect size: 6.409
+lstm vs svm: p=0.0008 (SIGNIFICANT)
+  Winner: lstm, Effect size: 6.550
+lstm vs naive_bayes: p=0.0001 (SIGNIFICANT)
+  Winner: lstm, Effect size: 10.488
+lstm vs logistic_regression: p=0.0008 (SIGNIFICANT)
+  Winner: lstm, Effect size: 6.409
+svm vs naive_bayes: p=0.2839 (Not significant)
+  Winner: No significant difference, Effect size: 0.532
+svm vs logistic_regression: p=0.2870 (Not significant)
+  Winner: No significant difference, Effect size: -0.290
+naive_bayes vs logistic_regression: p=0.0316 (SIGNIFICANT)
+  Winner: logistic_regression, Effect size: -0.887
+
+DETAILED MODEL ANALYSIS:
+----------------------------------------
+
+RANDOM_FOREST (sklearn)
+-------------
+Overall Accuracy: 0.8605
+F1 Score (Macro): 0.8316
+F1 Score (Weighted): 0.8628
+Matthews Correlation: 0.8521
+Cross-validation: 0.4509 ± 0.1086
+Inference time: 0.0494s
+Model size: 10.00MB
+
+Per-class Performance:
+  award: P=1.000 R=1.000 F1=1.000
+  beef: P=0.500 R=1.000 F1=0.667
+  breakup: P=1.000 R=0.875 F1=0.933
+  business_venture: P=1.000 R=1.000 F1=1.000
+  comeback: P=1.000 R=0.667 F1=0.800
+  controversy: P=1.000 R=1.000 F1=1.000
+  dating: P=1.000 R=0.875 F1=0.933
+  death: P=1.000 R=0.667 F1=0.800
+  divorce: P=1.000 R=1.000 F1=1.000
+  engagement: P=1.000 R=1.000 F1=1.000
+  family_drama: P=0.500 R=1.000 F1=0.667
+  feud: P=0.500 R=0.429 F1=0.462
+  fight: P=1.000 R=1.000 F1=1.000
+  health_issue: P=0.000 R=0.000 F1=0.000
+  lawsuit: P=1.000 R=1.000 F1=1.000
+  marriage: P=1.000 R=0.786 F1=0.880
+  new_project: P=0.778 R=1.000 F1=0.875
+  nomination: P=1.000 R=1.000 F1=1.000
+  red_carpet: P=0.444 R=1.000 F1=0.615
+  social_media_drama: P=1.000 R=1.000 F1=1.000
+
+MLP (pytorch)
+---
+Overall Accuracy: 0.1163
+F1 Score (Macro): 0.0309
+F1 Score (Weighted): 0.0502
+Matthews Correlation: 0.0465
+Cross-validation: 0.8000 ± 0.0000
+Inference time: 0.0255s
+Model size: 0.42MB
+
+Per-class Performance:
+  award: P=0.000 R=0.000 F1=0.000
+  beef: P=0.000 R=0.000 F1=0.000
+  breakup: P=0.125 R=0.750 F1=0.214
+  business_venture: P=0.000 R=0.000 F1=0.000
+  comeback: P=0.000 R=0.000 F1=0.000
+  controversy: P=0.000 R=0.000 F1=0.000
+  dating: P=0.000 R=0.000 F1=0.000
+  death: P=0.000 R=0.000 F1=0.000
+  divorce: P=0.000 R=0.000 F1=0.000
+  engagement: P=0.143 R=0.500 F1=0.222
+  family_drama: P=0.000 R=0.000 F1=0.000
+  feud: P=0.250 R=0.143 F1=0.182
+  fight: P=0.000 R=0.000 F1=0.000
+  health_issue: P=0.000 R=0.000 F1=0.000
+  lawsuit: P=0.000 R=0.000 F1=0.000
+  marriage: P=0.000 R=0.000 F1=0.000
+  new_project: P=0.000 R=0.000 F1=0.000
+  nomination: P=0.000 R=0.000 F1=0.000
+  red_carpet: P=0.000 R=0.000 F1=0.000
+  social_media_drama: P=0.000 R=0.000 F1=0.000
+
+LSTM (pytorch)
+----
+Overall Accuracy: 0.0698
+F1 Score (Macro): 0.0065
+F1 Score (Weighted): 0.0091
+Matthews Correlation: 0.0000
+Cross-validation: 0.8000 ± 0.0000
+Inference time: 0.0704s
+Model size: 1.26MB
+
+Per-class Performance:
+  award: P=0.000 R=0.000 F1=0.000
+  beef: P=0.000 R=0.000 F1=0.000
+  breakup: P=0.000 R=0.000 F1=0.000
+  business_venture: P=0.000 R=0.000 F1=0.000
+  comeback: P=0.000 R=0.000 F1=0.000
+  controversy: P=0.000 R=0.000 F1=0.000
+  dating: P=0.000 R=0.000 F1=0.000
+  death: P=0.000 R=0.000 F1=0.000
+  divorce: P=0.000 R=0.000 F1=0.000
+  engagement: P=0.070 R=1.000 F1=0.130
+  family_drama: P=0.000 R=0.000 F1=0.000
+  feud: P=0.000 R=0.000 F1=0.000
+  fight: P=0.000 R=0.000 F1=0.000
+  health_issue: P=0.000 R=0.000 F1=0.000
+  lawsuit: P=0.000 R=0.000 F1=0.000
+  marriage: P=0.000 R=0.000 F1=0.000
+  new_project: P=0.000 R=0.000 F1=0.000
+  nomination: P=0.000 R=0.000 F1=0.000
+  red_carpet: P=0.000 R=0.000 F1=0.000
+  social_media_drama: P=0.000 R=0.000 F1=0.000
+
+SVM (sklearn)
+---
+Overall Accuracy: 0.7907
+F1 Score (Macro): 0.6554
+F1 Score (Weighted): 0.7733
+Matthews Correlation: 0.7836
+Cross-validation: 0.3430 ± 0.0987
+Inference time: 0.0246s
+Model size: 10.00MB
+
+Per-class Performance:
+  award: P=1.000 R=1.000 F1=1.000
+  beef: P=0.000 R=0.000 F1=0.000
+  breakup: P=0.875 R=0.875 F1=0.875
+  business_venture: P=0.000 R=0.000 F1=0.000
+  comeback: P=1.000 R=0.667 F1=0.800
+  controversy: P=0.750 R=1.000 F1=0.857
+  dating: P=1.000 R=1.000 F1=1.000
+  death: P=0.000 R=0.000 F1=0.000
+  divorce: P=1.000 R=1.000 F1=1.000
+  engagement: P=1.000 R=1.000 F1=1.000
+  family_drama: P=0.000 R=0.000 F1=0.000
+  feud: P=0.750 R=0.429 F1=0.545
+  fight: P=1.000 R=1.000 F1=1.000
+  health_issue: P=0.000 R=0.000 F1=0.000
+  lawsuit: P=1.000 R=1.000 F1=1.000
+  marriage: P=0.917 R=0.786 F1=0.846
+  new_project: P=0.350 R=1.000 F1=0.519
+  nomination: P=1.000 R=1.000 F1=1.000
+  red_carpet: P=1.000 R=0.500 F1=0.667
+  social_media_drama: P=1.000 R=1.000 F1=1.000
+
+NAIVE_BAYES (sklearn)
+-----------
+Overall Accuracy: 0.6395
+F1 Score (Macro): 0.3251
+F1 Score (Weighted): 0.5283
+Matthews Correlation: 0.6153
+Cross-validation: 0.2980 ± 0.0677
+Inference time: 0.0224s
+Model size: 10.00MB
+
+Per-class Performance:
+  award: P=0.000 R=0.000 F1=0.000
+  beef: P=0.000 R=0.000 F1=0.000
+  breakup: P=0.727 R=1.000 F1=0.842
+  business_venture: P=0.000 R=0.000 F1=0.000
+  comeback: P=0.000 R=0.000 F1=0.000
+  controversy: P=0.600 R=1.000 F1=0.750
+  dating: P=0.800 R=1.000 F1=0.889
+  death: P=0.000 R=0.000 F1=0.000
+  divorce: P=1.000 R=1.000 F1=1.000
+  engagement: P=1.000 R=1.000 F1=1.000
+  family_drama: P=0.000 R=0.000 F1=0.000
+  feud: P=0.000 R=0.000 F1=0.000
+  fight: P=1.000 R=0.600 F1=0.750
+  health_issue: P=0.000 R=0.000 F1=0.000
+  lawsuit: P=0.000 R=0.000 F1=0.000
+  marriage: P=0.481 R=0.929 F1=0.634
+  new_project: P=0.467 R=1.000 F1=0.636
+  nomination: P=0.000 R=0.000 F1=0.000
+  red_carpet: P=0.000 R=0.000 F1=0.000
+  social_media_drama: P=0.000 R=0.000 F1=0.000
+
+LOGISTIC_REGRESSION (sklearn)
+-------------------
+Overall Accuracy: 0.7209
+F1 Score (Macro): 0.4670
+F1 Score (Weighted): 0.6730
+Matthews Correlation: 0.7051
+Cross-validation: 0.3710 ± 0.0947
+Inference time: 0.0221s
+Model size: 10.00MB
+
+Per-class Performance:
+  award: P=0.000 R=0.000 F1=0.000
+  beef: P=0.000 R=0.000 F1=0.000
+  breakup: P=0.800 R=1.000 F1=0.889
+  business_venture: P=0.000 R=0.000 F1=0.000
+  comeback: P=1.000 R=0.667 F1=0.800
+  controversy: P=0.750 R=1.000 F1=0.857
+  dating: P=0.889 R=1.000 F1=0.941
+  death: P=0.000 R=0.000 F1=0.000
+  divorce: P=1.000 R=1.000 F1=1.000
+  engagement: P=1.000 R=1.000 F1=1.000
+  family_drama: P=0.000 R=0.000 F1=0.000
+  feud: P=0.667 R=0.286 F1=0.400
+  fight: P=1.000 R=1.000 F1=1.000
+  health_issue: P=0.000 R=0.000 F1=0.000
+  lawsuit: P=1.000 R=0.667 F1=0.800
+  marriage: P=0.688 R=0.786 F1=0.733
+  new_project: P=0.350 R=1.000 F1=0.519
+  nomination: P=0.000 R=0.000 F1=0.000
+  red_carpet: P=1.000 R=0.250 F1=0.400
+  social_media_drama: P=0.000 R=0.000 F1=0.000
