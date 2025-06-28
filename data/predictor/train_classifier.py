@@ -208,11 +208,12 @@ class ClassifierTrainingPipeline:
             logger.info(f"Training {model_type} classifier")
 
             if model_type in ["mlp", "lstm", "transformer"]:
-                # PyTorch models
+                # PyTorch models - create unique path to avoid conflicts
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 config = PyTorchTrainingConfig(
                     model_type=model_type,
                     save_model=True,
-                    model_save_path=f"{project_root}/models/celebrity_classifier_{model_type}.pth"
+                    model_save_path=f"{project_root}/models/celebrity_classifier_{model_type}_{timestamp}.pth"
                 )
                 
                 classifier = CelebrityPyTorchClassifier(config)
@@ -333,7 +334,7 @@ class ClassifierTrainingPipeline:
                 evaluator = evaluate_all_models(
                     training_results=results,
                     training_samples=training_samples,
-                    output_dir=f"{project_root}/predictor/evaluation_results_{timestamp}"
+                    output_dir=f"{project_root}/data/predictor/evaluation_results"
                 )
                 
                 # Get the statistically best model

@@ -246,7 +246,9 @@ class CelebrityPyTorchClassifier:
         np.random.seed(self.config.random_state)
         
         # Create models directory if it doesn't exist
-        os.makedirs(os.path.dirname(self.config.model_save_path), exist_ok=True)
+        model_dir = os.path.dirname(self.config.model_save_path)
+        if model_dir:  # Only create if there's a directory path
+            os.makedirs(model_dir, exist_ok=True)
     
     def _build_vocabulary(self, texts: List[str]) -> Dict[str, int]:
         """Build vocabulary from training texts."""
@@ -598,13 +600,36 @@ class CelebrityPyTorchClassifier:
         if not os.path.exists(self.config.model_save_path):
             raise FileNotFoundError(f"Model file not found: {self.config.model_save_path}")
         
-        # Load with weights_only=False for backward compatibility
-        checkpoint = torch.load(self.config.model_save_path, map_location=self.device, weights_only=False)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.vocab = checkpoint['vocab']
-        self.label_encoder = checkpoint['label_encoder']
-        
-        logger.info(f"Model checkpoint loaded from {self.config.model_save_path}")
+        try:
+            # Load with weights_only=False for backward compatibility
+            checkpoint = torch.load(self.config.model_save_path, map_location=self.device, weights_only=False)
+            
+            # Check if the model architecture is compatible
+            current_vocab_size = len(self.vocab) if self.vocab else 0
+            current_num_classes = len(self.label_encoder.classes_) if hasattr(self.label_encoder, 'classes_') else 0
+            
+            # Try to get saved vocab and classes info
+            saved_vocab_size = len(checkpoint.get('vocab', {}))
+            saved_label_encoder = checkpoint.get('label_encoder')
+            saved_num_classes = len(saved_label_encoder.classes_) if saved_label_encoder and hasattr(saved_label_encoder, 'classes_') else 0
+            
+            if current_vocab_size > 0 and saved_vocab_size > 0 and current_vocab_size != saved_vocab_size:
+                logger.warning(f"Vocabulary size mismatch: current={current_vocab_size}, saved={saved_vocab_size}. Skipping checkpoint load.")
+                return
+            
+            if current_num_classes > 0 and saved_num_classes > 0 and current_num_classes != saved_num_classes:
+                logger.warning(f"Number of classes mismatch: current={current_num_classes}, saved={saved_num_classes}. Skipping checkpoint load.")
+                return
+            
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.vocab = checkpoint['vocab']
+            self.label_encoder = checkpoint['label_encoder']
+            
+            logger.info(f"Model checkpoint loaded from {self.config.model_save_path}")
+            
+        except (RuntimeError, KeyError) as e:
+            logger.warning(f"Failed to load checkpoint due to architecture mismatch: {e}")
+            logger.info("Continuing with newly initialized model")
     
     def save_model(self, path: str = None):
         """Save the complete trained model."""
@@ -621,22 +646,27 @@ class CelebrityPyTorchClassifier:
         if not os.path.exists(load_path):
             raise FileNotFoundError(f"Model file not found: {load_path}")
         
-        # Load with weights_only=False for backward compatibility
-        checkpoint = torch.load(load_path, map_location=self.device, weights_only=False)
-        
-        # Restore configuration and vocabulary
-        self.vocab = checkpoint['vocab']
-        self.label_encoder = checkpoint['label_encoder']
-        
-        # Create model with correct architecture
-        num_classes = len(self.label_encoder.classes_)
-        self.model = self._create_model(num_classes)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        
-        self.is_trained = True
-        
-        logger.info(f"Model loaded from {load_path}")
-        logger.info(f"Model trained at: {checkpoint.get('trained_at', 'Unknown')}")
+        try:
+            # Load with weights_only=False for backward compatibility
+            checkpoint = torch.load(load_path, map_location=self.device, weights_only=False)
+            
+            # Restore configuration and vocabulary
+            self.vocab = checkpoint['vocab']
+            self.label_encoder = checkpoint['label_encoder']
+            
+            # Create model with correct architecture
+            num_classes = len(self.label_encoder.classes_)
+            self.model = self._create_model(num_classes)
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            
+            self.is_trained = True
+            
+            logger.info(f"Model loaded from {load_path}")
+            logger.info(f"Model trained at: {checkpoint.get('trained_at', 'Unknown')}")
+            
+        except (RuntimeError, KeyError) as e:
+            logger.error(f"Failed to load model from {load_path}: {e}")
+            raise
     
     def print_evaluation_report(self):
         """Print detailed evaluation report."""
