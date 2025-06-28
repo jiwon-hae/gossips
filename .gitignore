@@ -194,3 +194,7 @@ cython_debug/
 .cursorindexingignore
 
 models/
+data/collected_news/
+*.json
+*.csv
+*.parquet
