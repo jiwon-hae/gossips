@@ -265,8 +265,9 @@ class ClassifierTrainingPipeline:
 
         # Step 3: Save training data
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        training_data_path = f"data/training_data_{timestamp}.json"
+        training_data_path = f"{project_root}/data/training_data_{timestamp}.json"
         Path(training_data_path).parent.mkdir(parents=True, exist_ok=True)
+        
         self.training_data_manager.save_training_data(
             training_samples, training_data_path)
 
@@ -321,7 +322,7 @@ async def main():
     # Set up training configs
     data_config = DataCollectionConfig(
         max_articles_per_run=args.max_articles,
-        output_directory=f"data/training_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        output_directory=f"{project_root}/data/training_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     )
 
     training_config = TrainingConfig(

@@ -70,7 +70,7 @@ class TrainingConfig:
     ngram_range: Tuple[int, int] = (1, 2)  # Unigrams and bigrams
     perform_grid_search: bool = False
     save_model: bool = True
-    model_save_path: str = "models/celebrity_classifier.pkl"
+    model_save_path: str = f"{project_root}/models/celebrity_classifier.pkl"
 
 
 class CelebrityMLClassifier:
@@ -561,7 +561,7 @@ async def train_example_classifier():
         config = TrainingConfig(
             model_type=model_type,
             save_model=True,
-            model_save_path=f"models/celebrity_classifier_{model_type}.pkl"
+            model_save_path=f"{project_root}/models/celebrity_classifier_{model_type}.pkl"
         )
         
         classifier = CelebrityMLClassifier(config)

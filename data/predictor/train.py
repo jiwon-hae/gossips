@@ -47,7 +47,7 @@ async def main():
     # Set up training configs
     data_config = DataCollectionConfig(
         max_articles_per_run=args.max_articles,
-        output_directory=f"data/training_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        output_directory=f"{project_root}/data/training_run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     )
 
     training_config = TrainingConfig(
