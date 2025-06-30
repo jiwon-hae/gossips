@@ -1,4 +1,4 @@
-# 🎭 Gossips - Celebrity News Intelligence Platform
+# 💫 Gossips - Celebrity News Intelligence Platform
 
 **Gossips** is an AI-powered platform that automatically collects, analyzes, and serves the latest celebrity news, gossip, conflicts, and events. Built with LlamaIndex and advanced machine learning, it provides intelligent insights into celebrity relationships, scandals, feuds, and trending topics.
 
@@ -134,27 +134,6 @@ response = client.chat.completions.create(
     }]
 )
 ```
-
-## 🎯 Event Classification
-
-### **Supported Categories**
-
-| Category | Examples | ML Accuracy |
-|----------|----------|-------------|
-| **Feuds** | Celebrity Twitter wars, public disputes | 92.3% |
-| **Relationships** | Divorces, engagements, breakups | 89.7% |
-| **Scandals** | Controversies, leaked content | 87.1% |
-| **Legal** | Lawsuits, court cases, settlements | 91.2% |
-| **Career** | New projects, awards, collaborations | 88.9% |
-
-### **Model Performance**
-
-| Model | Accuracy | F1-Score | Inference Time |
-|-------|----------|----------|----------------|
-| **Random Forest** | 89.2% | 0.891 | 2.3ms |
-| **LSTM** | 91.7% | 0.916 | 8.7ms |
-| **Transformer** | 93.1% | 0.929 | 15.2ms |
-| **MLP** | 88.4% | 0.882 | 3.1ms |
 
 ## 🔧 Configuration
 
