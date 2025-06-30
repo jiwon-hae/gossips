@@ -73,7 +73,7 @@ class TrainingConfig:
     model_save_path: str = f"{project_root}/models/celebrity_classifier.pkl"
 
 
-class CelebrityMLClassifier:
+class EventMLClassifier:
     """Machine Learning classifier for celebrity news events."""
     
     def __init__(self, config: TrainingConfig = None):
@@ -571,7 +571,7 @@ async def train_example_classifier():
             model_save_path=f"{project_root}/models/celebrity_classifier_{model_type}.pkl"
         )
         
-        classifier = CelebrityMLClassifier(config)
+        classifier = EventMLClassifier(config)
         metrics = classifier.train(training_samples)
         
         classifier.print_evaluation_report()
