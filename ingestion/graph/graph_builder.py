@@ -1,19 +1,34 @@
-
+import os, sys
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+    
 from typing import Optional, Any, List, Dict
 from ingestion.chunker.chunk import DocumentChunk
 from graphiti_core import Graphiti
 from agent.graph.client import GraphitiClient
 from datetime import datetime, timezone
+from data.predictor.ml_classifier import EventMLClassifier, TrainingConfig
 
 import spacy
 import wikipedia
-import re
 import logging
 import asyncio
+
 
 logger = logging.getLogger(__name__)
 
 nlp = spacy.load("en_core_web_sm")
+
+event_classifier_type = 'random_forest'
+config = TrainingConfig(
+    model_type=event_classifier_type,
+    save_model=True,
+    model_save_path=f"{project_root}/models/celebrity_classifier_{event_classifier_type}.pkl",
+    perform_grid_search=False  # Can be enabled for better performance
+)
+
+event_claissfier = EventMLClassifier(config)
 
 
 class GraphBuilder:
@@ -34,7 +49,7 @@ class GraphBuilder:
         Note: This appears to reference GraphitiClient but imports Graphiti.
         The implementation may need to be updated to match the actual API.
         """
-        self.client = GraphitiClient()
+        self.graph_client = GraphitiClient()
         self._initialized = False
 
     async def initialize(self):
@@ -208,27 +223,9 @@ class GraphBuilder:
 
         return list(found_celebrities)
 
-    def _extract_events(self, text) -> List[str]:
-        """Extract event from text"""
-        EVENT_TYPES = [
-            "dating", "breakup", "marriage", "divorce", "collaboration",
-            "award", "appearance", "interview", "feud", "scandal",
-            "career move", "death", "lawsuit", "social media post"
-        ]
-        
-        patterns = {
-            "dating": r"(dating|seen with|romantically involved)",
-            "breakup": r"(split|break up|called it quits)",
-            "award": r"(won.*award|nominated for)",
-            "scandal": r"(accused|controversy|backlash|scandal)",
-            "collaboration": r"(collaborating with|featuring|joined forces)",
-            "lawsuit": r"(filed a lawsuit|sued|legal battle)",
-        }
-        
-        for event, pattern in patterns.items():
-            if re.search(pattern, text, re.IGNORECASE):
-                return event
-        return "unknown"
+    def _extract_events(self, text) -> str:
+        """User simple ml classifier to classifies event into events"""
+        return event_claissfier.predict(text)
 
     async def extract_entities_from_chunks(
         self,
@@ -261,3 +258,39 @@ class GraphBuilder:
             content = chunk.content
             if extract_celebrities:
                 entities['celebrities'] = self._extract_celebrities(content)
+
+            if extract_events:
+                entities['event'] = self._extract_events(content)
+
+            enriched_chunk = DocumentChunk(
+                content=chunk.content,
+                index=chunk.index,
+                start_char=chunk.start_char,
+                end_char=chunk.end_char,
+                metadata={
+                    **chunk.metadata,
+                    "entities": entities,
+                    "entity_extraction_date": datetime.now().isoformat()
+                },
+                token_count=chunk.token_count
+            )
+
+            if hasattr(chunk, 'embedding'):
+                enriched_chunk.embedding = chunk.embedding
+
+            enriched_chunks.append(enriched_chunk)
+
+    async def clear_graph(self):
+        """Clear all data from the knowledge graph."""
+        if not self._initialized:
+            await self.initialize()
+        
+        logger.warning("Clearing knowledge graph...")
+        await self.graph_client.clear_graph()
+        logger.info("Knowledge graph cleared")
+    
+
+# Factory function
+def create_graph_builder() -> GraphBuilder:
+    """Create graph builder instance."""
+    return GraphBuilder()
