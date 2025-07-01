@@ -137,7 +137,7 @@ class DocumentIngestionPipeline:
         if self.clean_before_ingest:
             await self._clean_database()
 
-        documents = self.find_documents()
+        documents = find_documents(document_folder = self.document_folder)
         if not documents:
             logger.warning(f"No douments found in {self.document_folder}")
             return []
@@ -155,20 +155,7 @@ class DocumentIngestionPipeline:
                     progress_callback(idx + 1, len(documents))
             except Exception as e:
                 logger.error(f"Failed to process {file_path}: {e}")
-
-    def find_documents(self, doc_patterns: Optional[List[str]]) -> List[str]:
-        if not os.path.exists(self.document_folder):
-            logger.error(f"Documents folder not found: {self.document_folder}")
-            return []
-
-        # TODO: apply patterns to get all the respective files
-        patterns = doc_patterns if doc_patterns else ['*.txt']
-        files = []
-
-        for pattern in patterns:
-            files.extend(glob.glob(os.path.join(
-                self.documents_folder, "**", pattern), recursive=True))
-        return sorted(files)
+    
 
     async def _ingest_single_document(self, document_path: str) -> IngestionResult:
         """
@@ -187,6 +174,9 @@ class DocumentIngestionPipeline:
         document_source = os.path.relpath(document_path, self.documents_folder)
         document_metadata = extract_document_metadata(
             content=document_content, file_path=document_path)
+        
+        logging.info(f"Processing document: {document_title}")
+        
 
     async def _clean_database():
         raise NotImplementedError("clean database not yet implemented")

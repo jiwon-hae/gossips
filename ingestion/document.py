@@ -1,13 +1,28 @@
 import logging
 import fitz
 import os
+import glob
 
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 from docx import Document as DocxDocument
 
 logger = logging.getLogger(__name__)
+
+
+def find_documents(document_folder: str, doc_patterns: Optional[List[str]]) -> List[str]:
+    if not os.path.exists(document_folder):
+        logger.error(f"Documents folder not found: {document_folder}")
+        return []
+
+    # TODO: apply patterns to get all the respective files
+    patterns = doc_patterns if doc_patterns else ['*.txt']
+    files = []
+
+    for pattern in patterns:
+        files.extend(glob.glob(os.path.join(document_folder, "**", pattern), recursive=True))
+    return sorted(files)
 
 
 def read_document(document_path: str) -> str:
@@ -25,7 +40,7 @@ def _read_pdf(document_path: str) -> str:
     doc = fitz.open(document_path)
     content = "\n\n".join(page.get_text().strip() for page in doc)
     doc.close()
-    return content 
+    return content
 
 
 def _read_docx(document_path: str) -> str:
@@ -72,7 +87,8 @@ def _extract_title(content: str, file_path: str) -> str:
 def _extract_title_pdf(file_path: str) -> str:
     doc = fitz.open(file_path)
     metadata = doc.metadata
-    title = metadata.get("title", os.path.splitext(os.path.basename(file_path))[0]).strip()
+    title = metadata.get("title", os.path.splitext(
+        os.path.basename(file_path))[0]).strip()
     doc.close()
     return title
 
@@ -118,7 +134,7 @@ def _extract_metadata_pdf(content: str, file_path: str) -> Dict[str, Any]:
         "line_count": len(content.split('\n')),
         "page_count": doc.page_count
     }
-    
+
     pdf_metadata = doc.metadata
     if pdf_metadata:
         if pdf_metadata.get("title"):
@@ -135,7 +151,7 @@ def _extract_metadata_pdf(content: str, file_path: str) -> Dict[str, Any]:
             metadata["creation_date"] = pdf_metadata["creationDate"]
         if pdf_metadata.get("modDate"):
             metadata["modification_date"] = pdf_metadata["modDate"]
-    
+
     doc.close()
     return metadata
 
@@ -151,7 +167,7 @@ def _extract_metadata_docx(content: str, file_path: str) -> Dict[str, Any]:
         "line_count": len(content.split('\n')),
         "paragraph_count": len(doc.paragraphs)
     }
-    
+
     core_props = doc.core_properties
     if core_props.title:
         metadata["title"] = core_props.title
@@ -173,7 +189,7 @@ def _extract_metadata_docx(content: str, file_path: str) -> Dict[str, Any]:
         metadata["keywords"] = core_props.keywords
     if core_props.language:
         metadata["language"] = core_props.language
-    
+
     return metadata
 
 
