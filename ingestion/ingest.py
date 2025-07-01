@@ -3,23 +3,33 @@ import json
 import glob
 import argparse
 
+from datetime import datetime
+from typing import Optional, List, Dict, Any
 from pydantic import Field, field_validator
+
 try:
+    from .ingestion_result import IngestionResult
     from .graph.graph_builder import create_graph_builder
     from .chunker.config import ChunkingConfig
     from .chunker.chunker import create_chunker
     from .embed.embedder import create_embedder
-    
+    from ..agent.graph.graph import initialize_graph
+    from ..vector_store.postgresql_store import initilize_db
+    from .document import *
 except ImportError:
     import sys
     import os
     sys.path.append(os.path.dirname(
         os.path.dirname(os.path.abspath(__file__))))
-    
-    from ingestion.graph.graph_builder import create_graph_builder
+
+    from agent.graph.graph import initialize_graph, close_graph
     from ingestion.chunker.config import ChunkingConfig
     from ingestion.chunker.chunker import create_chunker
-    
+    from ingestion.document import *
+    from ingestion.graph.graph_builder import create_graph_builder
+    from ingestion.ingestion_result import IngestionResult
+    from vector_store.postgresql_store import initilize_db, close_db
+
 
 logger = logging.setLogger(__name__)
 
@@ -94,6 +104,89 @@ class DocumentIngestionPipeline:
         self.embedder = create_embedder()
         self.graph_builder = create_graph_builder()
         self._initialized = False
-    
+
     async def initialize(self):
         """Initilize database connection"""
+
+        if self._initialized:
+            return
+
+        logger.info("Initializing ingestion pipeline")
+
+        await initilize_db()
+        await initialize_graph()
+        await self.graph_builder.initialize()
+
+        self._initialized = True
+        logger.info("Ingestion pipeline initialize")
+
+    async def close(self):
+        if self._initialized:
+            await self.graph_builder.close()
+            await close_graph()
+            await close_db()
+            self._initialized = False
+
+    async def ingest_documents(
+        self,
+        progress_callback: Optional[callable] = None
+    ) -> List[IngestionResult]:
+        if not self._initialized:
+            await self.initialize()
+
+        if self.clean_before_ingest:
+            await self._clean_database()
+
+        documents = self.find_documents()
+        if not documents:
+            logger.warning(f"No douments found in {self.document_folder}")
+            return []
+
+        logger.info(f"Found {len(documents)} documents to process")
+        results = []
+
+        for idx, file_path in enumerate(documents):
+            try:
+                logger.info(
+                    f"Processing file {idx + 1}/{len(documents)}: {file_path}")
+                result = await self._ingest_single_document(file_path)
+                results.append(result)
+                if progress_callback:
+                    progress_callback(idx + 1, len(documents))
+            except Exception as e:
+                logger.error(f"Failed to process {file_path}: {e}")
+
+    def find_documents(self, doc_patterns: Optional[List[str]]) -> List[str]:
+        if not os.path.exists(self.document_folder):
+            logger.error(f"Documents folder not found: {self.document_folder}")
+            return []
+
+        # TODO: apply patterns to get all the respective files
+        patterns = doc_patterns if doc_patterns else ['*.txt']
+        files = []
+
+        for pattern in patterns:
+            files.extend(glob.glob(os.path.join(
+                self.documents_folder, "**", pattern), recursive=True))
+        return sorted(files)
+
+    async def _ingest_single_document(self, document_path: str) -> IngestionResult:
+        """
+        Ingest a single document
+        
+        Args:
+            document_path: Path to the document file
+        
+        Resurns:
+            Ingestion result
+        """
+        start_time = datetime.now()
+        document_content = read_document(document_path)
+        document_title = extract_title(
+            content=document_content, file_path=document_path)
+        document_source = os.path.relpath(document_path, self.documents_folder)
+        document_metadata = extract_document_metadata(
+            content=document_content, file_path=document_path)
+
+    async def _clean_database():
+        raise NotImplementedError("clean database not yet implemented")
