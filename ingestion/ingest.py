@@ -1,5 +1,3 @@
-import os
-import asyncio
 import logging
 import json
 import glob
@@ -10,6 +8,7 @@ try:
     from .graph.graph_builder import create_graph_builder
     from .chunker.config import ChunkingConfig
     from .chunker.chunker import create_chunker
+    from .embed.embedder import create_embedder
     
 except ImportError:
     import sys
@@ -92,6 +91,9 @@ class DocumentIngestionPipeline:
         )
 
         self.chunker = create_chunker(self.chunker_config)
-        #TODO(jiwon-hae) : Implement embedder
-        self.embedder = craete_embedder()
+        self.embedder = create_embedder()
         self.graph_builder = create_graph_builder()
+        self._initialized = False
+    
+    async def initialize(self):
+        """Initilize database connection"""
