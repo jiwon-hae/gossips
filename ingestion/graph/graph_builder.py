@@ -289,6 +289,12 @@ class GraphBuilder:
         await self.graph_client.clear_graph()
         logger.info("Knowledge graph cleared")
     
+    async def close(self):
+        """Close graph client."""
+        if self._initialized:
+            await self.graph_client.close()
+            self._initialized = False
+    
 
 # Factory function
 def create_graph_builder() -> GraphBuilder:
