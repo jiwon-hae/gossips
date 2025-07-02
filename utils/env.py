@@ -4,16 +4,18 @@ from pathlib import Path
 
 
 class EnvLoader:
-    def __init__(self, env_path:str ='.env'):
+    def __init__(self, env_path: str = '.env'):
         """
         Initializes the loader and loads environment variables from the given .env file.
         """
-        env_file = Path(env_path)
+        project_root = Path(__file__).resolve().parents[1]  # Adjust depending on depth
+        env_file = project_root / env_path
+
         if not env_file.exists():
             raise FileNotFoundError(f"{env_path} not found.")
         load_dotenv(dotenv_path=env_file)
-    
-    def get(self, key:str, default=None, required:bool = True) -> str:
+
+    def get(self, key: str, default=None, required: bool = True) -> str:
         """
         Retrieve the value for the given environment variable key.
         
@@ -32,5 +34,10 @@ class EnvLoader:
         if required and value is None:
             raise KeyError(f"Missing required environment variable: {key}")
         return value
-            
-        
+
+
+env = EnvLoader()
+
+
+def get_env() -> EnvLoader:
+    return env
