@@ -11,7 +11,7 @@ from docx import Document as DocxDocument
 logger = logging.getLogger(__name__)
 
 
-def find_documents(document_folder: str, doc_patterns: Optional[List[str]]) -> List[str]:
+def find_documents(document_folder: str, doc_patterns: Optional[List[str]]=None) -> List[str]:
     if not os.path.exists(document_folder):
         logger.error(f"Documents folder not found: {document_folder}")
         return []
