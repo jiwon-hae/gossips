@@ -4,12 +4,13 @@ import json
 
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from asyncpg.pool import Pool
 
 try:
     from ..utils.env import get_env
     from ..utils.sql import get_sql_loader
+    from ..ingestion.chunker.chunk import DocumentChunk
 except ImportError:
     import sys
     import os
@@ -17,6 +18,7 @@ except ImportError:
         os.path.dirname(os.path.abspath(__file__))))
     from utils.env import get_env
     from utils.sql import get_sql_loader
+    from ingestion.chunker.chunk import DocumentChunk
 
 logger = logging.getLogger(__name__)
 sql_loader = get_sql_loader()
@@ -91,7 +93,7 @@ async def create_session(
             timedelta(minutes=timeout_minutes)
 
         result = await connection.fetchrow(
-            sql_loader.load("session", "create.sql"),
+            sql_loader.load("sessions", "create.sql"),
             user_id,
             json.dumps(metadata or {}),
             expires_at
@@ -112,7 +114,7 @@ async def get_session(session_id: str) -> Optional[Dict[str, Any]]:
     """
     async with postgres_pool.acquire() as connection:
         result = await connection.fetchrow(
-            sql_loader.load("session", "get.sql"),
+            sql_loader.load("sessions", "get.sql"),
             session_id
         )
 
@@ -141,7 +143,7 @@ async def update_session(session_id: str, metadata: Dict[str, Any]) -> bool:
     """
     async with postgres_pool.acquire() as connection:
         result = await connection.execute(
-            sql_loader.load("session", "update.sql"),
+            sql_loader.load("sessions", "update.sql"),
             session_id,
             json.dumps(metadata)
         )
@@ -169,7 +171,7 @@ async def add_message(
     """
     async with postgres_pool.acquire() as connection:
         result = await connection.fetchrow(
-            sql_loader.load("message", "add.sql"),
+            sql_loader.load("message", "insert.sql"),
             session_id,
             role, 
             content,
@@ -177,3 +179,59 @@ async def add_message(
         )
         
         return result["id"]
+    
+
+async def save_to_postgres(
+        self,
+        title: str,
+        source: str,
+        content: str,
+        chunks: List[DocumentChunk],
+        metadata: Dict[str, Any]
+    ) -> str:
+        """Save document and chunks to PostgreSQL."""
+        async with postgres_pool.acquire() as connection:
+            async with connection.transaction():
+                # Insert document
+                document_result = await connection.fetchrow(
+                    sql_loader.load("document", "insert.sql"),
+                    title,
+                    source,
+                    content,
+                    json.dumps(metadata)
+                )
+                
+                document_id = document_result["id"]
+                
+                # Insert chunks
+                for chunk in chunks:
+                    # Convert embedding to PostgreSQL vector string format
+                    embedding_data = None
+                    if hasattr(chunk, 'embedding') and chunk.embedding:
+                        # PostgreSQL vector format: '[1.0,2.0,3.0]' (no spaces after commas)
+                        embedding_data = '[' + ','.join(map(str, chunk.embedding)) + ']'
+                    
+                    await connection.execute(
+                        sql_loader.load("chunk", "insert.sql"),
+                        document_id,
+                        chunk.content,
+                        embedding_data,
+                        chunk.index,
+                        json.dumps(chunk.metadata),
+                        chunk.token_count
+                    )
+                
+                return document_id
+            
+async def clean_databases():
+    """Clean existing data from databases"""
+    logger.warning("Clearning existing data from datbases....")
+    
+    async with postgres_pool.acquire() as connection:
+        async with connection.transaction():
+                await connection.execute(sql_loader.load("messages", "delete.sql"))
+                await connection.execute(sql_loader.load("sessions", "delete.sql"))
+                await connection.execute(sql_loader.load("chunks", "delete.sql"))
+                await connection.execute(sql_loader.load("documents", "delete.sql"))
+    
+    logger.info("Cleaned PostgreSQL database")
