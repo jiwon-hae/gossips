@@ -21,8 +21,6 @@ class ConfigLoader:
             raise ValueError(f"Error parsing YAML config: {e}")
 
     def get(self, key: str, default=None, required: bool = True) -> str:
-        print("configggsssss ####")
-        print(self.config.keys())
         value = self.config.get(key, default)
         if required and value is None:
             raise KeyError(f"Missing required config variable: {key}")
