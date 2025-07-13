@@ -9,19 +9,20 @@ from googlenewsdecoder import gnewsdecoder
 from datetime import date
 from typing import List, Optional
 from gnews import GNews
-from gnews.utils.constants import SECTIONS as gnewsSections
 from dataclasses import dataclass
 from newspaper import Article
 
 try:
-    from .search_config import Period, EventCategory
+    from .search_config import Period
+    from .events import Event
 except ImportError:
     import sys
     import os
     sys.path.append(os.path.dirname(
         os.path.dirname(os.path.abspath(__file__))))
 
-    from search_config import Period, EventCategory
+    from search_config import Period
+    from events import Event
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -138,17 +139,12 @@ class CelebrityGoogleNewsCollector(GoogleNewsCollector):
         
     async def search_celebrities_news(
         self,
-        query : str,
         max_results: Optional[int] = None,
         period: Period = Period.WEEKLY,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
     ):
         self.configure(period=period, max_results=max_results, start_date=start_date, end_date=end_date)
-        self.search(
-            query = '/topics/' + gnewsSections['CELEBRITIES'] + '?' + query
-        )
-        
         return self.convert(self.gnews.get_news_by_topic('CELEBRITIES'))
         
 
@@ -178,7 +174,7 @@ class CelebrityGoogleNewsCollector(GoogleNewsCollector):
 
     async def search_events(
         self,
-        events: List[EventCategory] = EventCategory.__members__,
+        events: List[Event] = Event.__members__,
         max_results: int = 10,
         period: Period = Period.WEEKLY,
         start_date: Optional[date] = None,

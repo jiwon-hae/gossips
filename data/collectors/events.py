@@ -30,6 +30,7 @@ class Event(Enum):
     SCANDAL         = 'scandal'
     BEEF            = 'beef'
     DISS            = 'diss'
+    ACCUSATION      = 'accusation'
 
     # Personal Events
     PREGNANCY       = 'pregnancy'
@@ -39,6 +40,7 @@ class Event(Enum):
     ADDICTION       = 'addiction'
     REHAB           = 'rehab'
     MENTAL_HEALTH   = 'mental_health'
+    FAMILY          = 'family'
 
     # Career Events
     NEW_PROJECT       = 'new_project'
@@ -95,6 +97,7 @@ EVENT_TO_CATEGORY: Dict[Event, EventCategory] = {
     Event.SCANDAL:     EventCategory.CONFLICT,
     Event.BEEF:        EventCategory.CONFLICT,
     Event.DISS:        EventCategory.CONFLICT,
+    Event.ACCUSATION:  EventCategory.CONFLICT,
 
     # Personal
     Event.PREGNANCY:      EventCategory.PERSONAL,
@@ -104,6 +107,7 @@ EVENT_TO_CATEGORY: Dict[Event, EventCategory] = {
     Event.ADDICTION:      EventCategory.PERSONAL,
     Event.REHAB:          EventCategory.PERSONAL,
     Event.MENTAL_HEALTH:  EventCategory.PERSONAL,
+    Event.FAMILY:    EventCategory.PERSONAL,
 
     # Career
     Event.NEW_PROJECT:      EventCategory.CAREER,
