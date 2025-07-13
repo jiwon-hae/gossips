@@ -2,11 +2,14 @@
 import logging
 import time
 import asyncio
+import base64
+import re
 
-
+from googlenewsdecoder import gnewsdecoder
 from datetime import date
 from typing import List, Optional
 from gnews import GNews
+from gnews.utils.constants import SECTIONS as gnewsSections
 from dataclasses import dataclass
 from newspaper import Article
 
@@ -33,7 +36,7 @@ class GoogleNews:
     
 
 
-class GNewCollector:
+class GoogleNewsCollector:
     def __init__(self, country: str = "US", language: str = "en"):
         self.gnews = GNews(language=language, country=country)
         self.rate_limit_delay = 1.0
@@ -65,6 +68,15 @@ class GNewCollector:
 
         if end_date is not None:
             self.gnews.end_date = (end_date.year, end_date.month, end_date.day)
+           
+    
+    def resolve_news_url(self, gn_url: str) -> str:
+        """
+        Extract and base64-decode the real article URL embedded in the
+        Google News RSS link. No HTTP request needed.
+        """
+        decoded_url = gnewsdecoder(gn_url)
+        return decoded_url['decoded_url']
     
     def convert(self, news_list: List[dict]) -> List[GoogleNews]:
         """Convert Google News API output format to GoogleNews objects."""
@@ -76,7 +88,7 @@ class GNewCollector:
                     title=news_item.get('title', ''),
                     description=news_item.get('description', ''),
                     published_date=news_item.get('published date', ''),
-                    url=news_item.get('url', ''),
+                    url=self.resolve_news_url(news_item.get('url', '')),
                     publisher=news_item.get('publisher', {}).get('title', ''),
                 )
                 converted_news.append(google_news)
@@ -114,27 +126,29 @@ class GNewCollector:
         
         await self._rate_limit()
         self.configure(period=period, max_results=max_results, start_date=start_date, end_date=end_date)
-        return self.convert(self.gnews.get_top_news())
+        return await self.convert(self.gnews.get_top_news())
     
     async def get_full_article(self, url) -> Article:
-        await self._rate_limit()
-        
         return self.gnews.get_full_article(url)
         
         
-
-class CelebrityGNewsCollector(GNewCollector):
+class CelebrityGoogleNewsCollector(GoogleNewsCollector):
     def __init__(self, country: str = "US", language: str = "en"):
         super().__init__(country=country, language=language)
         
-    async def search_celebrities(
+    async def search_celebrities_news(
         self,
+        query : str,
         max_results: Optional[int] = None,
         period: Period = Period.WEEKLY,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
     ):
         self.configure(period=period, max_results=max_results, start_date=start_date, end_date=end_date)
+        self.search(
+            query = '/topics/' + gnewsSections['CELEBRITIES'] + '?' + query
+        )
+        
         return self.convert(self.gnews.get_news_by_topic('CELEBRITIES'))
         
 
@@ -186,13 +200,13 @@ class CelebrityGNewsCollector(GNewCollector):
 
 
 async def main():
-    gnews_collector = CelebrityGNewsCollector()
+    gnews_collector = CelebrityGoogleNewsCollector()
     
-    result = await gnews_collector.search_celebrities(start_date=date(year=2025, month = 7, day=12))
+    result = await gnews_collector.search_celebrities_news()
     print(result[0])
     
     article = await gnews_collector.get_full_article(result[0].url)
-    print(article.keywords)
+    print(article.title)
     
 
 
