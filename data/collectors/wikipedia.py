@@ -3,9 +3,19 @@ import re
 import logging
 import mwparserfromhell
 
+from typing import Optional
 from dateutil import parser
 
-from info import *
+try:
+    from ..models.info import *
+except ImportError:
+    import os
+    import sys
+    
+    sys.path.append(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))))
+
+    from models.info import *
 
 logger = logging.getLogger(__name__)
 
