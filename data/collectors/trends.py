@@ -24,7 +24,7 @@ class TrendCollector:
         # Extract people from all news articles
         all_people = []
         for news in celeb_news:
-            people = extract_people(news.title + " " + news.description)
+            people = extract_people(news.title)
             all_people.extend(people)
         
         # Count occurrences and return top k trending celebrities

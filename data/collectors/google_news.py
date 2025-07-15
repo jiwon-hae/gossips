@@ -18,10 +18,9 @@ try:
 except ImportError:
     import sys
     import os
-    sys.path.append(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-    from search_config import Period
+    from collectors.search_config import Period
     from models.events import Event
 
 logger = logging.getLogger(__name__)
