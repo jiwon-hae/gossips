@@ -193,8 +193,8 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-models/
-data/collected_news/
+data/wiki/
 *.json
 *.csv
 *.parquet
+

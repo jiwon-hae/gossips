@@ -14,15 +14,14 @@ from newspaper import Article
 
 try:
     from .search_config import Period
-    from .events import Event
+    from ..models.events import Event
 except ImportError:
     import sys
     import os
-    sys.path.append(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-    from search_config import Period
-    from events import Event
+    from collectors.search_config import Period
+    from models.events import Event
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)

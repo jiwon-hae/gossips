@@ -2,16 +2,30 @@ import wptools
 import re
 import logging
 import mwparserfromhell
+import wikipedia
+from pathlib import Path
 
+from typing import Optional
 from dateutil import parser
 
-from info import *
+try:
+    from ..models.info import *
+except ImportError:
+    import os
+    import sys
+    
+    sys.path.append(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))))
+
+    from models.info import *
 
 logger = logging.getLogger(__name__)
 
 class WikipediaCollector:
     def __init__(self):
-        pass
+        DATA_DIR = Path(__file__).resolve().parent.parent
+        self.save_path = DATA_DIR / "wiki"
+        self.save_path.mkdir(parents=True, exist_ok=True)
 
     def page(self, name: str):
         return wptools.page(name).get_parse()
@@ -93,24 +107,38 @@ class WikipediaCollector:
         return cleaned
 
             
-    def personal(self, name: str):
-        info = self.info(name)
-        return PersonalInfo(
-            name = name ,
-            spouse= self._parse_spouse_field(info.get('spouse', None)),
-            occupation = self._parse_occupation(info.get("occupation", ''))
-        )
+    def profile(self, name: str):
+        try:
+            info = self.info(name)
+            return PersonalInfo(
+                name = name ,
+                spouse= self._parse_spouse_field(info.get('spouse', None)),
+                occupation = self._parse_occupation(info.get("occupation", ''))
+            )
+        except Exception as e:
+            logger.error(f"Failed to retrieve profile of {name}: ({e})")
+            return None
+        
+    def save_wiki(self, name: str):
+        try:
+            path = Path(self.save_path, f"{name}.md")
+            wiki = wikipedia.page(name)
+            path.write_text(wiki.content, encoding='utf-8')
+            logger.info(f"Successfully saved wiki of {name}")
+        except Exception as e:
+            logger.error(f"Failed to save wiki of {name}: ({e})")
+        
     
 if __name__ == '__main__':
     wikipediaCollector = WikipediaCollector()
-    info = wikipediaCollector.personal("Justin Bieber")
+    info = wikipediaCollector.profile("Justin Bieber")
     print(info)
     print('##########')
     
-    info = wikipediaCollector.personal("Johnny Depp")
+    info = wikipediaCollector.profile("Johnny Depp")
     print(info)
     print('##########')
     
-    info = wikipediaCollector.personal("Jennifer Lopez")
+    info = wikipediaCollector.profile("Jennifer Lopez")
     print(info)
     print('##########')
