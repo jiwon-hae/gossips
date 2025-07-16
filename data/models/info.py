@@ -4,15 +4,15 @@ from enum import Enum
 from datetime import date
 
 
-class RelationshipType(Enum):
-    MARRIAGE = 'marriage'
-    DIVORCE = 'divorced'
+class RelationshipStatus(Enum):
+    MARRIED = 'married'
+    DIVORCED = 'divorced'
     
 
 @dataclass
 class Relationship:
     partner : str
-    relationship : RelationshipType
+    relationship : RelationshipStatus
     start_yr : date
     end_yr : Optional[date] = None
 
@@ -21,3 +21,4 @@ class PersonalInfo:
     name: str
     occupation: str
     spouse: List[Relationship] = field(default_factory=list)
+    parents: List[str] = field(default_factory=list)

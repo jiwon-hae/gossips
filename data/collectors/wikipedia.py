@@ -2,7 +2,7 @@ import wptools
 import re
 import logging
 import mwparserfromhell
-import wikipedia
+import wikipedia as wiki
 from pathlib import Path
 
 from typing import Optional
@@ -32,9 +32,13 @@ class WikipediaCollector:
     
     def info(self, name: str):
         page = self.page(name)
-        return page.data.get("infobox", {})
+        
+        info = page.data.get('infobox', {})
+        info['title'] = page.data.get('title', '')
+        return info
     
     def _parse_spouse_field(self, raw: Optional[str]) -> List[Relationship]:
+        print(raw)
         if raw is None:
             return None
         
@@ -53,6 +57,19 @@ class WikipediaCollector:
                 end_year = None
                 reason = None
             
+            rel_str = reason or status
+            rel_str_lower = rel_str.lower()
+            
+            if rel_str_lower in ['marriage', 'married']:
+                relationship = RelationshipStatus.MARRIED
+            elif rel_str_lower == 'divorced':
+                relationship = RelationshipStatus.DIVORCED
+            else:
+                try:
+                    relationship = RelationshipStatus(rel_str_lower)
+                except ValueError:
+                    relationship = RelationshipStatus.MARRIED  # Default to married
+                
             name = name.replace("[", '').replace(']', '')
             name = name.split('|')[0]
             
@@ -61,11 +78,25 @@ class WikipediaCollector:
                     partner=name,
                     start_yr=parser.parse(start_year).date(),
                     end_yr = parser.parse(end_year).date() if end_year else None,
-                    relationship = RelationshipType(reason) if reason else RelationshipType(status)
+                    relationship = relationship
                 )
             )
         
         return relations
+
+    def _parse_parents(self, raw):
+        if not raw:
+            return None
+        
+        matches = re.findall(r'\[\[([^|\]]+)(?:\|[^]]*)?\]\]', raw)
+        return matches
+        
+        
+    def _parse_family(self, raw):
+        if not raw:
+            return None
+        
+        print(raw)
     
     def _parse_occupation(self, raw):
         code = mwparserfromhell.parse(raw)
@@ -107,38 +138,49 @@ class WikipediaCollector:
         return cleaned
 
             
-    def profile(self, name: str):
+    def profile(self, name: str) -> Optional[PersonalInfo]:
         try:
             info = self.info(name)
             return PersonalInfo(
-                name = name ,
+                name = info.get('title', info.get('name', info.get('birth_name', name))),
                 spouse= self._parse_spouse_field(info.get('spouse', None)),
-                occupation = self._parse_occupation(info.get("occupation", ''))
+                occupation = self._parse_occupation(info.get("occupation", '')),
+                parents = self._parse_parents(info.get('parents', None))
             )
         except Exception as e:
             logger.error(f"Failed to retrieve profile of {name}: ({e})")
             return None
         
-    def save_wiki(self, name: str):
+    def check_is_person(self, page):
+        cats = [c.lower() for c in page.categories]
+        return any(
+            ("living people" in c) or
+            ("births" in c and "births by year" not in c) or
+            ("deaths" in c and "deaths by year" not in c)
+            for c in cats
+        )
+        
+    def save_wiki(self, name: str, retry: bool = False, auto_suggest: bool = False):
         try:
-            path = Path(self.save_path, f"{name}.md")
-            wiki = wikipedia.page(name)
-            path.write_text(wiki.content, encoding='utf-8')
+            
+            wikipage = wiki.page(name, auto_suggest=auto_suggest)
+            info = self.info(name)
+            
+            if not self.check_is_person(wikipage):
+                return False
+            
+            path = Path(self.save_path, f"{info.get('title', info.get(name, info.get('birth_name', name)))}.md")
+            path.write_text(wikipage.content, encoding='utf-8')
             logger.info(f"Successfully saved wiki of {name}")
+            return True
         except Exception as e:
             logger.error(f"Failed to save wiki of {name}: ({e})")
+            if retry:
+                return False
+            return self.save_wiki(name, retry=True, auto_suggest=True)
         
     
 if __name__ == '__main__':
     wikipediaCollector = WikipediaCollector()
-    info = wikipediaCollector.profile("Justin Bieber")
+    info = wikipediaCollector.save_wiki("Nicolas Cage")
     print(info)
-    print('##########')
-    
-    info = wikipediaCollector.profile("Johnny Depp")
-    print(info)
-    print('##########')
-    
-    info = wikipediaCollector.profile("Jennifer Lopez")
-    print(info)
-    print('##########')
