@@ -19,7 +19,7 @@ except ImportError:
 
 
 model_id = "dbmdz/bert-large-cased-finetuned-conll03-english"
-hf_ner = pipeline("ner", model=model_id, grouped_entities=True)
+hf_ner = pipeline("ner", model=model_id, tokenizer=model_id, aggregation_strategy="simple")
 PRONOUNS = {"him", "her", "he", "she", "they", "them", "his", "hers", "their"}
 
 zero_shot_event_classifier = pipeline(
@@ -28,13 +28,14 @@ zero_shot_event_classifier = pipeline(
 
 def extract_people(text: str) -> List[str]:
     ents = hf_ner(text)
-    people = {
-        e["word"]
-        for e in ents
-        if e["entity_group"] == "PER"
-        and e["word"].lower() not in PRONOUNS
-    }
-    return sorted(people)
+    people = [
+        ent["word"].strip()
+        for ent in ents
+        if ent["entity_group"] == "PER"
+        and ent["word"].lower() not in PRONOUNS
+    ]
+    seen = set()
+    return [p for p in people if not (p.lower() in seen or seen.add(p.lower()))]
 
 
 def _extract_event(text: str) -> Tuple[Event, str]:
