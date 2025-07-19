@@ -6,7 +6,8 @@ from transformers import pipeline
 from nltk.tokenize import sent_tokenize
 
 try:
-    from ...models.events import Event, EVENT_TO_CATEGORY
+    from ..enums import Event, EVENT_TO_CATEGORY
+    # from ..models.events import Event, EVENT_TO_CATEGORY
 except ImportError:
     import os
     import sys
@@ -14,8 +15,7 @@ except ImportError:
         os.path.join(os.path.dirname(__file__), "..", "..")
     )
     sys.path.insert(0, project_root)
-
-    from models.events import Event, EVENT_TO_CATEGORY
+    from enums import Event, EVENT_TO_CATEGORY
 
 
 model_id = "dbmdz/bert-large-cased-finetuned-conll03-english"
