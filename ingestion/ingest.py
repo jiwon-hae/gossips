@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 try:
-    from .ingestion_result import IngestionResult
     from .graph.graph_builder import create_graph_builder
     from .chunker.config import ChunkingConfig
     from .chunker.chunker import create_chunker
@@ -27,7 +26,6 @@ except ImportError:
     from ingestion.file_utils import *
     from ingestion.embed.embedder import create_embedder
     from ingestion.graph.graph_builder import create_graph_builder
-    from ingestion.ingestion_result import IngestionResult
     from ingestion.config import *
     from vector_store.postgresql_store import *
 
