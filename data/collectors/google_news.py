@@ -1,10 +1,11 @@
 
+import json
 import logging
 import time
 import asyncio
-import base64
-import re
+from uuid import uuid4
 
+from pathlib import Path
 from googlenewsdecoder import gnewsdecoder
 from datetime import date
 from typing import List, Optional
@@ -14,26 +15,29 @@ from newspaper import Article
 
 try:
     from .search_config import Period
-    from ..models.events import Event
+    from ...ingestion.enums import *
+
 except ImportError:
     import sys
     import os
-    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    ))
 
-    from collectors.search_config import Period
-    from models.events import Event
+    from data.collectors.search_config import Period
+    from ingestion.enums import *
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
 @dataclass
 class GoogleNews:
-    title : str
+    title: str
     description: str
-    published_date : date
-    url : str
-    publisher : str
-    
+    published_date: date
+    url: str
+    publisher: str
 
 
 class GoogleNewsCollector:
@@ -41,6 +45,10 @@ class GoogleNewsCollector:
         self.gnews = GNews(language=language, country=country)
         self.rate_limit_delay = 1.0
         self.last_request_time = 0.0
+        
+        DATA_DIR = Path(__file__).resolve().parent.parent.parent
+        self.base_path = DATA_DIR / 'documents' / "articles"
+        self.base_path.mkdir(parents=True, exist_ok=True)
 
     async def _rate_limit(self):
         """Implement rate limiting."""
@@ -51,14 +59,14 @@ class GoogleNewsCollector:
             await asyncio.sleep(self.rate_limit_delay - time_since_last)
 
         self.last_request_time = time.time()
-    
-    def configure(self, 
-        max_results: Optional[int] = None,
-        period: Optional[str] = Period.WEEKLY,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None):
+
+    def configure(self,
+                  max_results: Optional[int] = None,
+                  period: Optional[str] = Period.WEEKLY,
+                  start_date: Optional[date] = None,
+                  end_date: Optional[date] = None):
         self.gnews.period = period
-        
+
         if max_results is not None:
             self.gnews.max_results = max_results
 
@@ -68,8 +76,7 @@ class GoogleNewsCollector:
 
         if end_date is not None:
             self.gnews.end_date = (end_date.year, end_date.month, end_date.day)
-           
-    
+
     def resolve_news_url(self, gn_url: str) -> str:
         """
         Extract and base64-decode the real article URL embedded in the
@@ -77,11 +84,11 @@ class GoogleNewsCollector:
         """
         decoded_url = gnewsdecoder(gn_url)
         return decoded_url['decoded_url']
-    
+
     def convert(self, news_list: List[dict]) -> List[GoogleNews]:
         """Convert Google News API output format to GoogleNews objects."""
         converted_news = []
-        
+
         for news_item in news_list:
             try:
                 google_news = GoogleNews(
@@ -95,11 +102,10 @@ class GoogleNewsCollector:
             except Exception as e:
                 logger.error(f"Error converting news item: {e}")
                 continue
-        
-        return converted_news
-        
 
-    async def search(
+        return converted_news
+
+    async def get_news(
         self,
         search_query: str,
         max_results: Optional[int] = None,
@@ -112,7 +118,8 @@ class GoogleNewsCollector:
             assert period is None, "Cannot use both period and date range"
 
         await self._rate_limit()
-        self.configure(period=period, max_results=max_results, start_date=start_date, end_date=end_date)
+        self.configure(period=period, max_results=max_results,
+                       start_date=start_date, end_date=end_date)
         self.gnews.period = period
         return self.convert(self.gnews.get_news(search_query))
 
@@ -123,19 +130,39 @@ class GoogleNewsCollector:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None
     ) -> List[GoogleNews]:
-        
+
         await self._rate_limit()
-        self.configure(period=period, max_results=max_results, start_date=start_date, end_date=end_date)
+        self.configure(period=period, max_results=max_results,
+                       start_date=start_date, end_date=end_date)
         return await self.convert(self.gnews.get_top_news())
-    
+
     async def get_full_article(self, url) -> Article:
         return self.gnews.get_full_article(url)
-        
-        
+    
+    def save_article(self, url : str, metadata : dict, save_path : Path):
+        doc_id = uuid4().hex
+        article = Article(url)
+        try:
+            article.build()
+            data = {
+                'title': article.title,
+                "id" : doc_id,
+                "text" : article.text,
+                "keywords": article.keywords,
+                **metadata,   
+            }
+            with open(Path(self.base_path, metadata['celeb'], save_path), "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+        except Exception as e:
+            logger.error(f"Failed to save articles JSON {metadata['celeb']}({e})")
+            
+
+
 class CelebrityGoogleNewsCollector(GoogleNewsCollector):
     def __init__(self, country: str = "US", language: str = "en"):
         super().__init__(country=country, language=language)
-        
+
     async def search_celebrities_news(
         self,
         max_results: Optional[int] = None,
@@ -143,9 +170,9 @@ class CelebrityGoogleNewsCollector(GoogleNewsCollector):
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
     ):
-        self.configure(period=period, max_results=max_results, start_date=start_date, end_date=end_date)
+        self.configure(period=period, max_results=max_results,
+                       start_date=start_date, end_date=end_date)
         return self.convert(self.gnews.get_news_by_topic('CELEBRITIES'))
-        
 
     async def search_target_celebrities(
         self,
@@ -163,7 +190,7 @@ class CelebrityGoogleNewsCollector(GoogleNewsCollector):
         for celebrity in celebrities:
             try:
                 # Search using parent class method
-                celebrity_news = await self.search(celebrity, max_results=max_results, period=period, start_date=start_date, end_date=end_date)
+                celebrity_news = await self.get_news(celebrity, max_results=max_results, period=period, start_date=start_date, end_date=end_date)
                 if celebrity_news:
                     results.extend(celebrity_news)
             except Exception as e:
@@ -180,10 +207,10 @@ class CelebrityGoogleNewsCollector(GoogleNewsCollector):
         end_date: Optional[date] = None,
     ):
         results = []
-        
+
         try:
             query = " OR ".join(events)
-            event_news = await self.search(query, max_results=max_results, period=period, start_date=start_date, end_date=end_date)
+            event_news = await self.get_news(query, max_results=max_results, period=period, start_date=start_date, end_date=end_date)
             if event_news:
                 results.extend(event_news)
         except Exception as e:
@@ -191,18 +218,10 @@ class CelebrityGoogleNewsCollector(GoogleNewsCollector):
 
         return results
 
-    
-
 
 async def main():
     gnews_collector = CelebrityGoogleNewsCollector()
-    
-    result = await gnews_collector.search_celebrities_news()
-    print(result[0])
-    
-    article = await gnews_collector.get_full_article(result[0].url)
-    print(article.title)
-    
+    news = await gnews_collector.get_news("Justin Bieber", max_results=10)
 
 
 if __name__ == '__main__':

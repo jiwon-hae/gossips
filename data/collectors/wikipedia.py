@@ -9,22 +9,22 @@ from typing import Optional
 from dateutil import parser
 
 try:
-    from ..models.info import *
+    from ...ingestion.models import *
 except ImportError:
-    import os
     import sys
+    import os
+    sys.path.insert(0, os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..")
+    ))
     
-    sys.path.append(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__))))
-
-    from models.info import *
+    from ingestion.models import *
 
 logger = logging.getLogger(__name__)
 
 class WikipediaCollector:
     def __init__(self):
-        DATA_DIR = Path(__file__).resolve().parent.parent
-        self.save_path = DATA_DIR / "wiki"
+        DATA_DIR = Path(__file__).resolve().parent.parent.parent
+        self.save_path = DATA_DIR / 'documents' / "wiki"
         self.save_path.mkdir(parents=True, exist_ok=True)
 
     def page(self, name: str):

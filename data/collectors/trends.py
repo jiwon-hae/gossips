@@ -3,7 +3,7 @@ from collections import Counter
 
 try:
     from .google_news import CelebrityGoogleNewsCollector
-    from .utility.text_processing import extract_people
+    from ...ingestion.document.text_processing import extract_peoplee
     from .search_config import Period
 except ImportError:
     import sys
@@ -11,14 +11,14 @@ except ImportError:
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))
     
     from google_news import CelebrityGoogleNewsCollector
-    from utility.text_processing import extract_people
+    from ingestion.document.text_processing import extract_people
     from search_config import Period
 
 class TrendCollector:
     def __init__(self):
         self.gnews = CelebrityGoogleNewsCollector()
     
-    async def get_trending_celeb(self, limit: int = 10):
+    async def get_hottest_celebs(self, limit: int = 10):
         celeb_news = await self.gnews.search_celebrities_news(period=Period.YEARLY)
         
         # Extract people from all news articles
@@ -33,7 +33,7 @@ class TrendCollector:
 
 async def main():
     trend = TrendCollector()
-    trending_celebs = await trend.get_trending_celeb()
+    trending_celebs = await trend.get_hottest_celebs()
     print("Trending celebrities:", trending_celebs)
 
 if __name__ == "__main__":
