@@ -3,7 +3,7 @@ import asyncio
 import argparse
 
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 try:
     from .graph.graph_builder import create_graph_builder
@@ -33,6 +33,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
 class IngestionResult(BaseModel):
     """Result of document ingestion."""
     document_id: str
@@ -42,7 +43,7 @@ class IngestionResult(BaseModel):
     relationships_created: int
     processing_time_ms: float
     errors: List[str] = Field(default_factory=list)
-    
+
 
 class DocumentIngestionPipeline:
     """
@@ -120,7 +121,8 @@ class DocumentIngestionPipeline:
         if self.clean_before_ingest:
             await self._clean_database()
 
-        documents = find_documents(document_folder=self.document_folder, doc_patterns = [".doc", ".txt", ".pdf"])
+        documents = find_documents(document_folder=self.document_folder, doc_patterns=[
+                                   ".doc", ".txt", ".pdf", '.md', '.json'])
         if not documents:
             logger.warning(f"No douments found in {self.document_folder}")
             return []
@@ -139,6 +141,92 @@ class DocumentIngestionPipeline:
             except Exception as e:
                 logger.error(f"Failed to process {file_path}: {e}")
 
+    def _classify_doc_type(path: Union[str, Path]) -> Optional[Literal["wiki", "article"]]:
+        p = Path(path)
+        # normalize in case you pass absolute paths
+        parts = p.parts
+        if "wiki" in parts:
+            return "wiki"
+        if "articles" in parts:
+            return "article"
+        return None
+
+    def _get_profiles(self, celeb: str) -> Optional[Dict[str, Any]]:
+        """Extract CSV row pertinent to the celebrity from profiles.csv"""
+        try:
+            # Get the documents directory (parent of current file's parent)
+            documents_path = Path(__file__).parent.parent / 'documents'
+            profiles_path = documents_path / 'profiles.csv'
+
+            if not profiles_path.exists():
+                logger.warning(f"Profiles file not found: {profiles_path}")
+                return None
+
+            # Read CSV file
+            df = pd.read_csv(profiles_path)
+
+            if df.empty:
+                logger.warning("Profiles CSV file is empty")
+                return None
+
+            # Search for celebrity (case-insensitive)
+            # Assuming first column is name
+            mask = df.iloc[:, 0].str.lower() == celeb.lower()
+            matches = df[mask]
+
+            if matches.empty:
+                logger.info(f"No profile found for celebrity: {celeb}")
+                return None
+
+            # Return the first match as a dictionary
+            return matches.iloc[0].to_dict()
+
+        except Exception as e:
+            logger.error(f"Error reading profiles for {celeb}: {e}")
+            return None
+
+    def _ingest_wiki(self, wiki_path: Union[str, Path]) -> Dict:
+        try:
+            wiki_path = Path(wiki_path)
+            celebrity = wiki_path.stem
+            profile = self.get_profiles(celeb=celebrity)
+
+            with open(wiki_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                return {
+                    'title': f'{celebrity} Wiki',
+                    'celeb': celebrity,
+                    "source": "Wikipedia",
+                    'content': content,
+                    'url': f"https://en.wikipedia.org/wiki/{celebrity}",
+                    "author": None,
+                    "ingest_date": datetime.utcnow().isoformat() + 'Z',
+                    'keyword': "wiki"
+                    **profile
+                }
+        except FileNotFoundError as e:
+            logger.error(f"Wiki for {celebrity} does not exists ({e})")
+        except Exception as e:
+            logger.error(f"Failed to ingest wiki for {celebrity}({e})")
+
+    def _ingest_article(self, article_path: Union[str, Path]) -> Dict:
+        article_path = Path(article_path)
+
+        try:
+            with article_path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+                profile = self.get_profiles(celeb=data['celeb'])
+
+                return {
+                    **data,
+                    **profile
+                }
+        except FileNotFoundError as e:
+            logger.error(
+                f"Article for {article_path.stem} does not exists ({e})")
+        except Exception as e:
+            logger.error(f"Failed to ingest article for {e})")
+
     async def _ingest_single_document(self, document_path: str) -> IngestionResult:
         """
         Ingest a single document
@@ -150,14 +238,23 @@ class DocumentIngestionPipeline:
             Ingestion result
         """
         start_time = datetime.now()
-        document_content = read_document(document_path)
-        document_title = extract_title(
-            content=document_content, file_path=document_path)
-        document_source = os.path.relpath(document_path, self.documents_folder)
-        document_metadata = extract_document_metadata(
-            content=document_content, file_path=document_path)
+        doc_type = self._classify_doc_type(document_path)
 
-        logging.info(f"Processing document: {document_title}")
+        if doc_type == 'wiki':
+            doc = self._ingest_wiki(document_path)
+        elif doc_type == 'article':
+            doc = self._ingest_wiki(document_path)
+
+        document_content = doc['content']
+
+        # document_content = read_document(document_path)
+        # document_title = extract_title(
+        #     content=document_content, file_path=document_path)
+        # document_source = os.path.relpath(document_path, self.documents_folder)
+        # document_metadata = extract_document_metadata(
+        #     content=document_content, file_path=document_path)
+
+        # logging.info(f"Processing document: {document_title}")
 
         # Document chunking
         chunks = await self.chunker.chunk_document(
@@ -285,7 +382,7 @@ async def main():
         level=log_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-    
+
     # Create ingestion configuration
     config = IngestionConfig(
         chunk_size=args.chunk_size,
@@ -294,46 +391,48 @@ async def main():
         extract_entities=not args.no_entities,
         skip_graph_building=args.fast
     )
-    
+
     # Create and run pipeline
     pipeline = DocumentIngestionPipeline(
         config=config,
         documents_folder=args.documents,
         clean_before_ingest=args.clean
     )
-    
+
     def progress_callback(current: int, total: int):
         print(f"Progress: {current}/{total} documents processed")
-    
+
     try:
         start_time = datetime.now()
-        
         results = await pipeline.ingest_documents(progress_callback)
-        
         end_time = datetime.now()
         total_time = (end_time - start_time).total_seconds()
-        
+
         # Print summary
         print("\n" + "="*50)
         print("INGESTION SUMMARY")
         print("="*50)
         print(f"Documents processed: {len(results)}")
-        print(f"Total chunks created: {sum(r.chunks_created for r in results)}")
-        print(f"Total entities extracted: {sum(r.entities_extracted for r in results)}")
-        print(f"Total graph episodes: {sum(r.relationships_created for r in results)}")
+        print(
+            f"Total chunks created: {sum(r.chunks_created for r in results)}")
+        print(
+            f"Total entities extracted: {sum(r.entities_extracted for r in results)}")
+        print(
+            f"Total graph episodes: {sum(r.relationships_created for r in results)}")
         print(f"Total errors: {sum(len(r.errors) for r in results)}")
         print(f"Total processing time: {total_time:.2f} seconds")
         print()
-        
+
         # Print individual results
         for result in results:
             status = "✓" if not result.errors else "✗"
-            print(f"{status} {result.title}: {result.chunks_created} chunks, {result.entities_extracted} entities")
-            
+            print(
+                f"{status} {result.title}: {result.chunks_created} chunks, {result.entities_extracted} entities")
+
             if result.errors:
                 for error in result.errors:
                     print(f"  Error: {error}")
-        
+
     except KeyboardInterrupt:
         print("\nIngestion interrupted by user")
     except Exception as e:
