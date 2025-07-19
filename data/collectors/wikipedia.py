@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 class WikipediaCollector:
     def __init__(self):
-        DATA_DIR = Path(__file__).resolve().parent.parent
-        self.save_path = DATA_DIR / "wiki"
+        DATA_DIR = Path(__file__).resolve().parent.parent.parent
+        self.save_path = DATA_DIR / 'documents' / "wiki"
         self.save_path.mkdir(parents=True, exist_ok=True)
 
     def page(self, name: str):
