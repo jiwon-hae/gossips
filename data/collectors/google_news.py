@@ -46,7 +46,7 @@ class GoogleNewsCollector:
         self.rate_limit_delay = 1.0
         self.last_request_time = 0.0
         
-        DATA_DIR = Path(__file__).resolve().parent.parent.parent
+        DATA_DIR = Path(__file__).resolve().parent.parent
         self.base_path = DATA_DIR / 'documents' / "articles"
         self.base_path.mkdir(parents=True, exist_ok=True)
 
@@ -139,19 +139,26 @@ class GoogleNewsCollector:
     async def get_full_article(self, url) -> Article:
         return self.gnews.get_full_article(url)
     
-    def save_article(self, url : str, metadata : dict, save_path : Path):
+    async def save_article(self, url : str, metadata : dict):
         doc_id = uuid4().hex
         article = Article(url)
         try:
+            await self._rate_limit()
             article.build()
             data = {
                 'title': article.title,
                 "id" : doc_id,
-                "text" : article.text,
+                "content" : article.text,
                 "keywords": article.keywords,
+                'url': url,
+                
                 **metadata,   
             }
-            with open(Path(self.base_path, metadata['celeb'], save_path), "w", encoding="utf-8") as f:
+            
+            celeb_path = self.base_path / metadata['celeb']
+            celeb_path.mkdir(parents=True, exist_ok=True)
+            
+            with open(celeb_path / f'{article.title}.json', "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             
         except Exception as e:

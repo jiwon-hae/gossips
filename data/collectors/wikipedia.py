@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 class WikipediaCollector:
     def __init__(self):
         DATA_DIR = Path(__file__).resolve().parent.parent.parent
-        self.save_path = DATA_DIR / 'documents' / "wiki"
-        self.save_path.mkdir(parents=True, exist_ok=True)
+        self.base_path = DATA_DIR / 'documents' / "wiki"
+        self.base_path.mkdir(parents=True, exist_ok=True)
 
     def page(self, name: str):
         return wptools.page(name).get_parse()
@@ -169,7 +169,7 @@ class WikipediaCollector:
             if not self.check_is_person(wikipage):
                 return False
             
-            path = Path(self.save_path, f"{info.get('title', info.get(name, info.get('birth_name', name)))}.md")
+            path = Path(self.base_path, f"{info.get('title', info.get(name, info.get('birth_name', name)))}.md")
             path.write_text(wikipage.content, encoding='utf-8')
             logger.info(f"Successfully saved wiki of {name}")
             return True
