@@ -8,7 +8,6 @@ from ingestion.chunker.chunk import DocumentChunk
 from graphiti_core import Graphiti
 from agent.graph.client import GraphitiClient
 from datetime import datetime, timezone
-from data.predictor.ml_classifier import EventMLClassifier, TrainingConfig
 
 import spacy
 import wikipedia
@@ -19,16 +18,6 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 nlp = spacy.load("en_core_web_sm")
-
-event_classifier_type = 'random_forest'
-config = TrainingConfig(
-    model_type=event_classifier_type,
-    save_model=True,
-    model_save_path=f"{project_root}/models/celebrity_classifier_{event_classifier_type}.pkl",
-    perform_grid_search=False  # Can be enabled for better performance
-)
-
-event_claissfier = EventMLClassifier(config)
 
 
 class GraphBuilder:
@@ -223,9 +212,9 @@ class GraphBuilder:
 
         return list(found_celebrities)
 
-    def _extract_events(self, text) -> str:
-        """User simple ml classifier to classifies event into events"""
-        return event_claissfier.predict(text)
+    # def _extract_events(self, text) -> str:
+    #     """User simple ml classifier to classifies event into events"""
+    #     return event_claissfier.predict(text)
 
     async def extract_entities_from_chunks(
         self,
@@ -250,18 +239,15 @@ class GraphBuilder:
         enriched_chunks = []
 
         for chunk in chunks:
-            entities = {
-                "celebrities": [],
-                "events": []
-            }
-
             content = chunk.content
             if extract_celebrities:
-                entities['celebrities'] = self._extract_celebrities(content)
+                extracted_celebs = self._extract_celebrities(content)
+                existing = set(chunk['metadata'].get('celebrities', []))
+                chunk['metadata']['celebrities'] = list(existing.union(extracted_celebs))
 
-            if extract_events:
-                entities['event'] = self._extract_events(content)
-
+            # if extract_events:
+            #     chunk['event'] = self._extract_events(content)
+            
             enriched_chunk = DocumentChunk(
                 content=chunk.content,
                 index=chunk.index,
@@ -269,7 +255,6 @@ class GraphBuilder:
                 end_char=chunk.end_char,
                 metadata={
                     **chunk.metadata,
-                    "entities": entities,
                     "entity_extraction_date": datetime.now().isoformat()
                 },
                 token_count=chunk.token_count
@@ -279,6 +264,8 @@ class GraphBuilder:
                 enriched_chunk.embedding = chunk.embedding
 
             enriched_chunks.append(enriched_chunk)
+        
+        return enriched_chunks
 
     async def clear_graph(self):
         """Clear all data from the knowledge graph."""
