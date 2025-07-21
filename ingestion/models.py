@@ -20,5 +20,6 @@ class Relationship:
 class PersonalInfo:
     name: str
     occupation: str
-    spouse: List[Relationship] = field(default_factory=list)
+    current_relationship : Optional[Relationship] = None
+    past_relationships : Optional[List[Relationship]] = None
     parents: List[str] = field(default_factory=list)
