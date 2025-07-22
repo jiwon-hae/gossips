@@ -86,7 +86,7 @@ class DocumentIngestionPipeline:
             chunk_size=config.chunk_size,
             chunk_overlap=config.chunk_overlap,
             max_chunk_size=config.max_chunk_size,
-            use_semantic_splitting=config.use_semantic_chunking
+            # use_semantic_splitting=config.use_semantic_chunking
         )
 
         self.chunker = create_chunker(self.chunker_config)
@@ -302,10 +302,15 @@ class DocumentIngestionPipeline:
             )
 
         logging.info(f"Created {len(chunks)} chunks")
-        # Extract sentiment if configured
+        
+        # Extract document-level sentiment if configured
         if self.config.extract_sentiment:
             chunks = extract_sentiment_from_chunks(chunks)
 
+        # Extract document overall sentiment
+        if self.config.extract_events:
+            chunks = extract_event_from_chunks(chunks)
+            
         # # Extract entities if configured
         entities_extracted = 0
 
@@ -393,7 +398,7 @@ async def main():
     parser = argparse.ArgumentParser(
         description="Ingest documents into vector DB and knowledge graph")
     parser.add_argument("--documents", "-d",
-                        default='/Users/jiwon_hae/PycharmProjects/RAG_with_llamaindex/RAG_with_llamaindex/documents/wiki/',
+                        default='/Users/jiwon_hae/PycharmProjects/RAG_with_llamaindex/RAG_with_llamaindex/documents/articles/',
                         # default="documents",
                         help="Documents folder path")
     parser.add_argument("--clean", "-c", action="store_true",
@@ -402,10 +407,10 @@ async def main():
                         help="Chunk size for splitting documents")
     parser.add_argument("--chunk-overlap", type=int,
                         default=200, help="Chunk overlap size")
-    parser.add_argument("--no-semantic", action="store_true", default=True,
-                        help="Disable semantic chunking")
-    parser.add_argument("--no-sentiment", action="store_true", default=True,
+    parser.add_argument("--no-sentiment", action="store_true", default=False,
                         help="Disable sentiment analysis")
+    parser.add_argument("--no-event", action="store_true", default=False,
+                        help="Disable event analysis")
     parser.add_argument("--no-entities", action="store_true", default=False,
                         help="Disable entity extraction")
     parser.add_argument("--fast", "-f", action="store_true",
@@ -424,9 +429,9 @@ async def main():
     config = IngestionConfig(
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
-        use_semantic_chunking=not args.no_semantic,
         extract_sentiment=not args.no_sentiment,
         extract_entities=not args.no_entities,
+        extract_event = not args.no_event,
         skip_graph_building=args.fast
     )
 

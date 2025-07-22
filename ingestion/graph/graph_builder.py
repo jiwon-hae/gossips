@@ -212,15 +212,12 @@ class GraphBuilder:
 
         return list(found_celebrities)
 
-    # def _extract_events(self, text) -> str:
-    #     """User simple ml classifier to classifies event into events"""
-    #     return event_claissfier.predict(text)
 
     async def extract_entities_from_chunks(
         self,
         chunks: List[DocumentChunk],
         extract_celebrities: bool = True,
-        extract_events: bool = True
+        extract_events: bool = True,
     ) -> List[DocumentChunk]:
         """
         Extract entities from chunks and add to metadata.
@@ -242,11 +239,8 @@ class GraphBuilder:
             content = chunk.content
             if extract_celebrities:
                 extracted_celebs = self._extract_celebrities(content)
-                existing = set(chunk['metadata'].get('celebrities', []))
-                chunk['metadata']['celebrities'] = list(existing.union(extracted_celebs))
-
-            # if extract_events:
-            #     chunk['event'] = self._extract_events(content)
+                existing = set(chunk.metadata.get('celebrities', []))
+                chunk.metadata['celebrities'] = list(existing.union(extracted_celebs))
             
             enriched_chunk = DocumentChunk(
                 content=chunk.content,

@@ -76,6 +76,10 @@ class Event(Enum):
 
     # Catch-all
     OTHER              = 'other'
+    
+    @classmethod
+    def values(cls):
+        return [e.value for e in cls]
 
 
 # Mapping each fine-grained Event → its high-level EventCategory
@@ -143,4 +147,5 @@ EVENT_TO_CATEGORY: Dict[Event, EventCategory] = {
 
     # Catch-all
     Event.OTHER:          EventCategory.OTHERS,
+    
 }
