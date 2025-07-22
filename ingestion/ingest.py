@@ -305,11 +305,13 @@ class DocumentIngestionPipeline:
         
         # Extract document-level sentiment if configured
         if self.config.extract_sentiment:
-            chunks = extract_sentiment_from_chunks(chunks)
+            sentiment = extract_sentiment_from_chunks(chunks)
+            document_metadata['sentiment'] = sentiment
 
         # Extract document overall sentiment
         if self.config.extract_events:
-            chunks = extract_event_from_chunks(chunks)
+            event = extract_event_from_chunks(chunks)
+            document_metadata['event'] = event
             
         # # Extract entities if configured
         entities_extracted = 0
@@ -343,8 +345,8 @@ class DocumentIngestionPipeline:
         logger.info(f"Saved document to PostgreSQL with ID: {document_id}")
 
         # # Add to knowledge graph (if enabled)
-        # relationships_created = 0
-        # graph_errors = []
+        relationships_created = 0
+        graph_errors = []
 
         # if not self.config.skip_graph_building:
         #     try:
