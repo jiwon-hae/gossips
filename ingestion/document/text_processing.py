@@ -72,10 +72,7 @@ def extract_sentiment_from_chunks(chunks: List[DocumentChunk]):
         chunk.metadata['sentiment'] = sentiment
         
     doc_sentiment = aggregate_chunk_metadata(chunks, key = 'sentiment')
-    for chunk in chunks:
-        chunk.metadata['sentiment'] = doc_sentiment
-
-    return chunks
+    return doc_sentiment
 
 def extract_sentiment(chunk : str):
     result = sentiment_classifier(chunk)
@@ -90,7 +87,4 @@ def extract_event_from_chunks(chunks : List[DocumentChunk]):
         chunk.metadata['event'] = event
     
     doc_event = aggregate_chunk_metadata(chunks, key = 'event')
-    for chunk in chunks:
-        chunk.metadata['event'] = doc_event
-    
-    return chunks
+    return doc_event
