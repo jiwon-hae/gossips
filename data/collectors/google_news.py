@@ -46,7 +46,7 @@ class GoogleNewsCollector:
         self.rate_limit_delay = 1.0
         self.last_request_time = 0.0
         
-        DATA_DIR = Path(__file__).resolve().parent.parent
+        DATA_DIR = Path(__file__).resolve().parent.parent.parent
         self.base_path = DATA_DIR / 'documents' / "articles"
         self.base_path.mkdir(parents=True, exist_ok=True)
 

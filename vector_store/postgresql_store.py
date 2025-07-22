@@ -21,9 +21,10 @@ except ImportError:
     from ingestion.chunker.chunk import DocumentChunk
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 sql_loader = get_sql_loader()
 env = get_env()
-
 
 class PostgreSQLPool:
     def __init__(self, db_url: Optional[str] = None):
@@ -182,46 +183,51 @@ async def add_message(
     
 
 async def save_to_postgres(
-        self,
         title: str,
+        celebrity: str,
         source: str,
         content: str,
         chunks: List[DocumentChunk],
         metadata: Dict[str, Any]
     ) -> str:
         """Save document and chunks to PostgreSQL."""
-        async with postgres_pool.acquire() as connection:
-            async with connection.transaction():
-                # Insert document
-                document_result = await connection.fetchrow(
-                    sql_loader.load("document", "insert.sql"),
-                    title,
-                    source,
-                    content,
-                    json.dumps(metadata)
-                )
-                
-                document_id = document_result["id"]
-                
-                # Insert chunks
-                for chunk in chunks:
-                    # Convert embedding to PostgreSQL vector string format
-                    embedding_data = None
-                    if hasattr(chunk, 'embedding') and chunk.embedding:
-                        # PostgreSQL vector format: '[1.0,2.0,3.0]' (no spaces after commas)
-                        embedding_data = '[' + ','.join(map(str, chunk.embedding)) + ']'
-                    
-                    await connection.execute(
-                        sql_loader.load("chunk", "insert.sql"),
-                        document_id,
-                        chunk.content,
-                        embedding_data,
-                        chunk.index,
-                        json.dumps(chunk.metadata),
-                        chunk.token_count
+        try:
+            async with postgres_pool.acquire() as connection:
+                async with connection.transaction():
+                    # Insert document
+                    document_result = await connection.fetchrow(
+                        sql_loader.load("document", "insert.sql"),
+                        title,
+                        celebrity,
+                        source,
+                        content,
+                        json.dumps(metadata)
                     )
-                
-                return document_id
+                    
+                    document_id = document_result["id"]
+                    
+                    # Insert chunks
+                    for chunk in chunks:
+                        # Convert embedding to PostgreSQL vector string format
+                        embedding_data = None
+                        if hasattr(chunk, 'embedding') and chunk.embedding:
+                            # PostgreSQL vector format: '[1.0,2.0,3.0]' (no spaces after commas)
+                            embedding_data = '[' + ','.join(map(str, chunk.embedding)) + ']'
+                        
+                        await connection.execute(
+                            sql_loader.load("chunk", "insert.sql"),
+                            document_id,
+                            chunk.content,
+                            embedding_data,
+                            chunk.index,
+                            json.dumps(chunk.metadata),
+                            chunk.token_count
+                        )
+                    
+                    return document_id
+        except Exception as e:
+            logger.error(f"Failed to save documents to postgre {title}({e})")
+            raise e
             
 async def clean_databases():
     """Clean existing data from databases"""

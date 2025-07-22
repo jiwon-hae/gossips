@@ -12,8 +12,9 @@ class IngestionConfig(BaseModel):
     chunk_size: int = Field(default=1000, ge=100, le=5000)
     chunk_overlap: int = Field(default=200, ge=0, le=1000)
     max_chunk_size: int = Field(default=2000, ge=500, le=10000)
-    use_semantic_chunking: bool = True
     extract_entities: bool = True
+    extract_sentiment : bool = True
+    extract_events : bool = True
     skip_graph_building: bool = Field(
         default=False, description="Skip knowledge graph building for faster ingestion")
 

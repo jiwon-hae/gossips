@@ -1,12 +1,16 @@
 import logging
 import asyncio
 import argparse
+import json
+import pandas as pd
 
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Union
+from pathlib import Path
 
 try:
     from .graph.graph_builder import create_graph_builder
+    from .document.text_processing import *
     from .chunker.config import ChunkingConfig
     from .chunker.chunker import create_chunker
     from .embed.embedder import create_embedder
@@ -21,6 +25,7 @@ except ImportError:
         os.path.dirname(os.path.abspath(__file__))))
 
     from agent.graph.graph import initialize_graph, close_graph
+    from document.text_processing import *
     from ingestion.chunker.config import ChunkingConfig
     from ingestion.chunker.chunker import create_chunker
     from ingestion.file_utils import *
@@ -81,7 +86,7 @@ class DocumentIngestionPipeline:
             chunk_size=config.chunk_size,
             chunk_overlap=config.chunk_overlap,
             max_chunk_size=config.max_chunk_size,
-            use_semantic_splitting=config.use_semantic_chunking
+            # use_semantic_splitting=config.use_semantic_chunking
         )
 
         self.chunker = create_chunker(self.chunker_config)
@@ -141,10 +146,10 @@ class DocumentIngestionPipeline:
             except Exception as e:
                 logger.error(f"Failed to process {file_path}: {e}")
 
-    def _classify_doc_type(path: Union[str, Path]) -> Optional[Literal["wiki", "article"]]:
+    def _classify_doc_type(self, path: Union[str, Path]) -> Optional[Literal["wiki", "article"]]:
         p = Path(path)
-        # normalize in case you pass absolute paths
         parts = p.parts
+
         if "wiki" in parts:
             return "wiki"
         if "articles" in parts:
@@ -170,8 +175,11 @@ class DocumentIngestionPipeline:
                 return None
 
             # Search for celebrity (case-insensitive)
-            # Assuming first column is name
-            mask = df.iloc[:, 0].str.lower() == celeb.lower()
+            # Convert to string first, then handle NaN values
+            # Use second column (index 1) as it contains names
+            name_column = df.iloc[:, 1]
+            name_column_str = name_column.astype(str).str.lower()
+            mask = name_column_str == celeb.lower()
             matches = df[mask]
 
             if matches.empty:
@@ -189,43 +197,50 @@ class DocumentIngestionPipeline:
         try:
             wiki_path = Path(wiki_path)
             celebrity = wiki_path.stem
-            profile = self.get_profiles(celeb=celebrity)
+            profile = self._get_profiles(celeb=celebrity)
 
             with open(wiki_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                return {
+                result = {
                     'title': f'{celebrity} Wiki',
                     'celeb': celebrity,
                     "source": "Wikipedia",
                     'content': content,
                     'url': f"https://en.wikipedia.org/wiki/{celebrity}",
                     "author": None,
-                    "ingest_date": datetime.utcnow().isoformat() + 'Z',
-                    'keyword': "wiki"
-                    **profile
+                    'keyword': "wiki",
+                    **profile,
                 }
+
+                if profile:
+                    result.update(profile)
+                return result
         except FileNotFoundError as e:
             logger.error(f"Wiki for {celebrity} does not exists ({e})")
         except Exception as e:
             logger.error(f"Failed to ingest wiki for {celebrity}({e})")
 
-    def _ingest_article(self, article_path: Union[str, Path]) -> Dict:
+    def _ingest_article(self, article_path: Union[str, Path]) -> Optional[Dict]:
         article_path = Path(article_path)
 
         try:
             with article_path.open("r", encoding="utf-8") as f:
                 data = json.load(f)
-                profile = self.get_profiles(celeb=data['celeb'])
+                profile = self._get_profiles(celeb=data['celeb'])
+                result = {**data}
 
-                return {
-                    **data,
-                    **profile
-                }
+                if profile:
+                    result.update(profile)
+                return result
+
         except FileNotFoundError as e:
             logger.error(
                 f"Article for {article_path.stem} does not exists ({e})")
+            return None
         except Exception as e:
-            logger.error(f"Failed to ingest article for {e})")
+            logger.error(
+                f"Failed to ingest article for {article_path.stem}: {e}")
+            return None
 
     async def _ingest_single_document(self, document_path: str) -> IngestionResult:
         """
@@ -243,21 +258,30 @@ class DocumentIngestionPipeline:
         if doc_type == 'wiki':
             doc = self._ingest_wiki(document_path)
         elif doc_type == 'article':
-            doc = self._ingest_wiki(document_path)
+            doc = self._ingest_article(document_path)
 
-        document_content = doc['content']
+        document_title = doc["title"]
+        document_celebrity = doc["celeb"]
+        document_content = doc["content"]
+        document_source = doc["source"]
+        document_metadata = {
+            "celebrities":            [document_celebrity],
+            "occupations":          doc.get("occupations", []),
+            "tags":                 doc.get("keywords", []),
+            # e.g. {"partner": ..., "relationship": "married", ...}
+            "current_relationship": doc.get("current_rel", {}),
+            "past_relationships":   doc.get("past_rels", []),
+            "file_path":            doc["url"],
+            "file_size":            len(document_content),
+            "line_count":           document_content.count("\n") + 1,
+            "ingestion_date":       datetime.now().isoformat(),
+            "publish_date":         doc.get("publish_date"),
+        }
 
-        # document_content = read_document(document_path)
-        # document_title = extract_title(
-        #     content=document_content, file_path=document_path)
-        # document_source = os.path.relpath(document_path, self.documents_folder)
-        # document_metadata = extract_document_metadata(
-        #     content=document_content, file_path=document_path)
-
-        # logging.info(f"Processing document: {document_title}")
+        logging.info(f"Processing document: {document_title}")
 
         # Document chunking
-        chunks = await self.chunker.chunk_document(
+        chunks = self.chunker.chunk_document(
             content=document_content,
             title=document_title,
             source=document_source,
@@ -278,74 +302,90 @@ class DocumentIngestionPipeline:
             )
 
         logging.info(f"Created {len(chunks)} chunks")
+        
+        # Extract document-level sentiment if configured
+        if self.config.extract_sentiment:
+            sentiment = extract_sentiment_from_chunks(chunks)
+            document_metadata['sentiment'] = sentiment
 
-        # Extract entities if configured
+        # Extract document overall sentiment
+        if self.config.extract_events:
+            event = extract_event_from_chunks(chunks)
+            document_metadata['event'] = event
+            
+        # # Extract entities if configured
         entities_extracted = 0
+
         if self.config.extract_entities:
-            chunks = await self.graph_builder.extract_entities_from_chunks(chunks)
+            chunks = await self.graph_builder.extract_entities_from_chunks(
+                chunks,
+                extract_celebrities=doc_type == 'article',
+                extract_events=doc_type == 'article')
             entities_extracted = sum(
-                len(chunk.metadata.get("entities", {})).get("celebrities", []) +
-                len(chunk.metadata.get("entities", {})).get("events", [])
+                len(chunk.metadata.get("celebrities", [])) +
+                len(chunk.metadata.get("events", []))
                 for chunk in chunks
             )
 
             logger.info(f"Extracted {entities_extracted} entities")
 
-        # Generate embeddings
+        # # Generate embeddings
         embedded_chunks = await self.embedder.embed_chunks(chunks)
         logger.info(f"Genearted embeddings for {len(embedded_chunks)} chunks")
 
         document_id = await save_to_postgres(
-            document_title,
-            document_source,
-            document_content,
-            embedded_chunks,
-            document_metadata
+            title=document_title,
+            celebrity=document_celebrity,
+            source=document_source,
+            content=document_content,
+            chunks=embedded_chunks,
+            metadata=document_metadata
         )
 
         logger.info(f"Saved document to PostgreSQL with ID: {document_id}")
 
-        # Add to knowledge graph (if enabled)
+        # # Add to knowledge graph (if enabled)
         relationships_created = 0
         graph_errors = []
 
-        if not self.config.skip_graph_building:
-            try:
-                logger.info(
-                    "Building knowledge graph relationships (this may take several minutes)...")
-                graph_result = await self.graph_builder.add_document_to_graph(
-                    chunks=embedded_chunks,
-                    document_title=document_title,
-                    document_source=document_source,
-                    document_metadata=document_metadata
-                )
+        # if not self.config.skip_graph_building:
+        #     try:
+        #         logger.info(
+        #             "Building knowledge graph relationships (this may take several minutes)...")
+        #         graph_result = await self.graph_builder.add_document_to_graph(
+        #             chunks=embedded_chunks,
+        #             document_title=document_title,
+        #             document_source=document_source,
+        #             document_metadata=document_metadata
+        #         )
 
-                relationships_created = graph_result.get("episodes_created", 0)
-                graph_errors = graph_result.get("errors", [])
+        #         relationships_created = graph_result.get("episodes_created", 0)
+        #         graph_errors = graph_result.get("errors", [])
 
-                logger.info(
-                    f"Added {relationships_created} episodes to knowledge graph")
+        #         logger.info(
+        #             f"Added {relationships_created} episodes to knowledge graph")
 
-            except Exception as e:
-                error_msg = f"Failed to add to knowledge graph: {str(e)}"
-                logger.error(error_msg)
-                graph_errors.append(error_msg)
-        else:
-            logger.info(
-                "Skipping knowledge graph building (skip_graph_building=True)")
+        #     except Exception as e:
+        #         error_msg = f"Failed to add to knowledge graph: {str(e)}"
+        #         logger.error(error_msg)
+        #         graph_errors.append(error_msg)
+        # else:
+        #     logger.info(
+        #         "Skipping knowledge graph building (skip_graph_building=True)")
 
-        # Calculate processing time
-        processing_time = (datetime.now() - start_time).total_seconds() * 1000
+        # # Calculate processing time
+        # processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
-        return IngestionResult(
-            document_id=document_id,
-            title=document_title,
-            chunks_created=len(chunks),
-            entities_extracted=entities_extracted,
-            relationships_created=relationships_created,
-            processing_time_ms=processing_time,
-            errors=graph_errors
-        )
+        # return IngestionResult(
+        #     document_id=document_id,
+        #     title=document_title,
+        #     chunks_created=len(chunks),
+        #     entities_extracted=entities_extracted,
+        #     relationships_created=relationships_created,
+        #     processing_time_ms=processing_time,
+        #     errors=graph_errors
+        # )
+        return
 
     async def _clean_database(self):
         await clean_databases()
@@ -360,16 +400,20 @@ async def main():
     parser = argparse.ArgumentParser(
         description="Ingest documents into vector DB and knowledge graph")
     parser.add_argument("--documents", "-d",
-                        default="documents", help="Documents folder path")
+                        default='/Users/jiwon_hae/PycharmProjects/RAG_with_llamaindex/RAG_with_llamaindex/documents/articles/',
+                        # default="documents",
+                        help="Documents folder path")
     parser.add_argument("--clean", "-c", action="store_true",
                         help="Clean existing data before ingestion")
     parser.add_argument("--chunk-size", type=int, default=1000,
                         help="Chunk size for splitting documents")
     parser.add_argument("--chunk-overlap", type=int,
                         default=200, help="Chunk overlap size")
-    parser.add_argument("--no-semantic", action="store_true",
-                        help="Disable semantic chunking")
-    parser.add_argument("--no-entities", action="store_true",
+    parser.add_argument("--no-sentiment", action="store_true", default=False,
+                        help="Disable sentiment analysis")
+    parser.add_argument("--no-event", action="store_true", default=False,
+                        help="Disable event analysis")
+    parser.add_argument("--no-entities", action="store_true", default=False,
                         help="Disable entity extraction")
     parser.add_argument("--fast", "-f", action="store_true",
                         help="Fast mode: skip knowledge graph building")
@@ -387,8 +431,9 @@ async def main():
     config = IngestionConfig(
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
-        use_semantic_chunking=not args.no_semantic,
+        extract_sentiment=not args.no_sentiment,
         extract_entities=not args.no_entities,
+        extract_event = not args.no_event,
         skip_graph_building=args.fast
     )
 
@@ -408,30 +453,30 @@ async def main():
         end_time = datetime.now()
         total_time = (end_time - start_time).total_seconds()
 
-        # Print summary
-        print("\n" + "="*50)
-        print("INGESTION SUMMARY")
-        print("="*50)
-        print(f"Documents processed: {len(results)}")
-        print(
-            f"Total chunks created: {sum(r.chunks_created for r in results)}")
-        print(
-            f"Total entities extracted: {sum(r.entities_extracted for r in results)}")
-        print(
-            f"Total graph episodes: {sum(r.relationships_created for r in results)}")
-        print(f"Total errors: {sum(len(r.errors) for r in results)}")
-        print(f"Total processing time: {total_time:.2f} seconds")
-        print()
+        # # Print summary
+        # print("\n" + "="*50)
+        # print("INGESTION SUMMARY")
+        # print("="*50)
+        # print(f"Documents processed: {len(results)}")
+        # print(
+        #     f"Total chunks created: {sum(r.chunks_created for r in results)}")
+        # print(
+        #     f"Total entities extracted: {sum(r.entities_extracted for r in results)}")
+        # print(
+        #     f"Total graph episodes: {sum(r.relationships_created for r in results)}")
+        # print(f"Total errors: {sum(len(r.errors) for r in results)}")
+        # print(f"Total processing time: {total_time:.2f} seconds")
+        # print()
 
-        # Print individual results
-        for result in results:
-            status = "✓" if not result.errors else "✗"
-            print(
-                f"{status} {result.title}: {result.chunks_created} chunks, {result.entities_extracted} entities")
+        # # Print individual results
+        # for result in results:
+        #     status = "✓" if not result.errors else "✗"
+        #     print(
+        #         f"{status} {result.title}: {result.chunks_created} chunks, {result.entities_extracted} entities")
 
-            if result.errors:
-                for error in result.errors:
-                    print(f"  Error: {error}")
+        #     if result.errors:
+        #         for error in result.errors:
+        #             print(f"  Error: {error}")
 
     except KeyboardInterrupt:
         print("\nIngestion interrupted by user")

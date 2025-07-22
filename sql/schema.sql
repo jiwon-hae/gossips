@@ -14,6 +14,7 @@ DROP INDEX IF EXISTS idx_chunks_content_trgm;
 CREATE TABLE documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title TEXT NOT NULL,
+    celebrity TEXT NOT NULL,
     source TEXT NOT NULL,
     content TEXT NOT NULL,
     metadata JSONB DEFAULT '{}',
@@ -210,3 +211,32 @@ SELECT
 FROM documents d
 LEFT JOIN chunks c ON d.id = c.document_id
 GROUP BY d.id, d.title, d.source, d.created_at, d.updated_at, d.metadata;
+
+CREATE INDEX IF NOT EXISTS idx_documents_celebrity
+  ON documents (celebrity);
+
+ALTER TABLE documents
+  ADD COLUMN IF NOT EXISTS publish_date TIMESTAMP WITH TIME ZONE;
+
+UPDATE documents
+  SET publish_date = (metadata->>'publish_date')::timestamptz
+  WHERE metadata ? 'publish_date';
+
+CREATE INDEX IF NOT EXISTS idx_documents_publish_date
+  ON documents (publish_date DESC);
+
+ALTER TABLE documents
+  ADD COLUMN IF NOT EXISTS content_tsv tsvector
+    GENERATED ALWAYS AS (to_tsvector('english', content)) STORED;
+
+CREATE INDEX IF NOT EXISTS idx_documents_content_tsv
+  ON documents USING GIN (content_tsv);
+
+ALTER TABLE chunks
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE
+    DEFAULT CURRENT_TIMESTAMP;
+
+CREATE TRIGGER IF NOT EXISTS update_chunks_updated_at
+  BEFORE UPDATE ON chunks
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();

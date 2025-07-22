@@ -3,8 +3,9 @@ import re
 import logging
 import mwparserfromhell
 import wikipedia as wiki
-from pathlib import Path
 
+from dataclasses import asdict
+from pathlib import Path
 from typing import Optional
 from dateutil import parser
 
@@ -137,13 +138,25 @@ class WikipediaCollector:
         cleaned = [mwparserfromhell.parse(o).strip_code().strip() for o in occs]
         return cleaned
 
+    def _serialize_relation(self, rel):
+        data = asdict(rel)
+        data['relationship'] = data['relationship'].value
+        data['start_yr'] = rel.start_yr.isoformat() if rel.start_yr else None
+        data['end_yr'] = rel.end_yr.isoformat() if rel.end_yr else None
+        return data
             
     def profile(self, name: str) -> Optional[PersonalInfo]:
         try:
             info = self.info(name)
+            spouses = self._parse_spouse_field(info.get('spouse', None))
+            is_first_married = bool(spouses) and spouses[0].relationship == RelationshipStatus.MARRIED
+            relationships = [self._serialize_relation(rel)
+                            for rel in spouses] if spouses else None
+
             return PersonalInfo(
                 name = info.get('title', info.get('name', info.get('birth_name', name))),
-                spouse= self._parse_spouse_field(info.get('spouse', None)),
+                current_relationship = relationships[0] if is_first_married else None,
+                past_relationships = relationships[1:] if is_first_married else relationships,
                 occupation = self._parse_occupation(info.get("occupation", '')),
                 parents = self._parse_parents(info.get('parents', None))
             )
