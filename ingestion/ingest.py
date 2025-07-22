@@ -10,6 +10,7 @@ from pathlib import Path
 
 try:
     from .graph.graph_builder import create_graph_builder
+    from .document.text_processing import *
     from .chunker.config import ChunkingConfig
     from .chunker.chunker import create_chunker
     from .embed.embedder import create_embedder
@@ -24,6 +25,7 @@ except ImportError:
         os.path.dirname(os.path.abspath(__file__))))
 
     from agent.graph.graph import initialize_graph, close_graph
+    from document.text_processing import *
     from ingestion.chunker.config import ChunkingConfig
     from ingestion.chunker.chunker import create_chunker
     from ingestion.file_utils import *
@@ -300,9 +302,13 @@ class DocumentIngestionPipeline:
             )
 
         logging.info(f"Created {len(chunks)} chunks")
+        # Extract sentiment if configured
+        if self.config.extract_sentiment:
+            chunks = extract_sentiment_from_chunks(chunks)
 
         # # Extract entities if configured
         entities_extracted = 0
+
         if self.config.extract_entities:
             chunks = await self.graph_builder.extract_entities_from_chunks(
                 chunks,
@@ -398,6 +404,8 @@ async def main():
                         default=200, help="Chunk overlap size")
     parser.add_argument("--no-semantic", action="store_true", default=True,
                         help="Disable semantic chunking")
+    parser.add_argument("--no-sentiment", action="store_true", default=True,
+                        help="Disable sentiment analysis")
     parser.add_argument("--no-entities", action="store_true", default=False,
                         help="Disable entity extraction")
     parser.add_argument("--fast", "-f", action="store_true",
@@ -417,6 +425,7 @@ async def main():
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
         use_semantic_chunking=not args.no_semantic,
+        extract_sentiment=not args.no_sentiment,
         extract_entities=not args.no_entities,
         skip_graph_building=args.fast
     )
