@@ -348,44 +348,43 @@ class DocumentIngestionPipeline:
         relationships_created = 0
         graph_errors = []
 
-        # if not self.config.skip_graph_building:
-        #     try:
-        #         logger.info(
-        #             "Building knowledge graph relationships (this may take several minutes)...")
-        #         graph_result = await self.graph_builder.add_document_to_graph(
-        #             chunks=embedded_chunks,
-        #             document_title=document_title,
-        #             document_source=document_source,
-        #             document_metadata=document_metadata
-        #         )
+        if not self.config.skip_graph_building:
+            try:
+                logger.info(
+                    "Building knowledge graph relationships (this may take several minutes)...")
+                graph_result = await self.graph_builder.add_document_to_graph(
+                    chunks=embedded_chunks,
+                    document_title=document_title,
+                    document_source=document_source,
+                    document_metadata=document_metadata
+                )
 
-        #         relationships_created = graph_result.get("episodes_created", 0)
-        #         graph_errors = graph_result.get("errors", [])
+                relationships_created = graph_result.get("episodes_created", 0)
+                graph_errors = graph_result.get("errors", [])
 
-        #         logger.info(
-        #             f"Added {relationships_created} episodes to knowledge graph")
+                logger.info(
+                    f"Added {relationships_created} episodes to knowledge graph")
 
-        #     except Exception as e:
-        #         error_msg = f"Failed to add to knowledge graph: {str(e)}"
-        #         logger.error(error_msg)
-        #         graph_errors.append(error_msg)
-        # else:
-        #     logger.info(
-        #         "Skipping knowledge graph building (skip_graph_building=True)")
+            except Exception as e:
+                error_msg = f"Failed to add to knowledge graph: {str(e)}"
+                logger.error(error_msg)
+                graph_errors.append(error_msg)
+        else:
+            logger.info(
+                "Skipping knowledge graph building (skip_graph_building=True)")
 
         # # Calculate processing time
-        # processing_time = (datetime.now() - start_time).total_seconds() * 1000
+        processing_time = (datetime.now() - start_time).total_seconds() * 1000
 
-        # return IngestionResult(
-        #     document_id=document_id,
-        #     title=document_title,
-        #     chunks_created=len(chunks),
-        #     entities_extracted=entities_extracted,
-        #     relationships_created=relationships_created,
-        #     processing_time_ms=processing_time,
-        #     errors=graph_errors
-        # )
-        return
+        return IngestionResult(
+            document_id=document_id,
+            title=document_title,
+            chunks_created=len(chunks),
+            entities_extracted=entities_extracted,
+            relationships_created=relationships_created,
+            processing_time_ms=processing_time,
+            errors=graph_errors
+        )
 
     async def _clean_database(self):
         await clean_databases()

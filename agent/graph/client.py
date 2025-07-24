@@ -13,6 +13,15 @@ from graphiti_core.llm_client.openai_client import OpenAIClient
 from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
 from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
 
+try:
+    from .edges import *
+except ImportError:
+    import os
+    import sys
+    
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    from agent.graph.edges import *
+
 logger = logging.getLogger(__name__)
 
 env = EnvLoader()
@@ -69,7 +78,7 @@ class GraphitiClient:
 
     async def initialize(self):
         """Initialize Graphiti client"""
-        if self.initialize:
+        if self._initialized:
             return
 
         try:
@@ -96,9 +105,9 @@ class GraphitiClient:
 
             # Initialize Graphiti with custom clients
             self.graphiti = Graphiti(
-                self.neo4j_uri,
-                self.neo4j_user,
-                self.neo4j_password,
+                uri = self.neo4j_uri,
+                user = self.neo4j_user,
+                password = self.neo4j_password,
                 llm_client=llm_client,
                 embedder=embedder,
                 cross_encoder=OpenAIRerankerClient(
@@ -123,6 +132,8 @@ class GraphitiClient:
             self.graphiti = None
             self._initialized = False
             logger.info("Graphiti client closed")
+            
+    
 
     async def add_episode(
         self,
@@ -155,7 +166,9 @@ class GraphitiClient:
             episode_body=content,
             source=EpisodeType.text,  # Always use text type for our content
             source_description=source,
-            reference_time=episode_timestamp
+            reference_time=episode_timestamp,
+            edge_types=edge_types,
+            edge_type_map=edge_type_map,
         )
 
         logger.info(f"Added episode {episode_id} to knowledge graph")
